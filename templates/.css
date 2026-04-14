@@ -1,0 +1,16 @@
+/* 기존 .logo 스타일을 수정하여 SVG와 텍스트가 잘 어우러지게 합니다 */
+.logo { 
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Syncopate'; 
+    color: var(--accent); 
+    font-size: 1.4rem; 
+    font-weight: 700;
+    text-decoration: none;
+}
+.logo svg {
+    width: 35px;
+    height: 35px;
+    fill: var(--accent);
+}
