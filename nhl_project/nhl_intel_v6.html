@@ -1,0 +1,1349 @@
+
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <title>NHL INTELLIGENCE CENTER V6</title>
+        <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=JetBrains+Mono:wght@500;700&display=swap');
+            body { background: #020617; color: #f8fafc; font-family: 'JetBrains Mono', monospace; padding: 40px; }
+            .app-wrapper { background: #0f172a; border-radius: 20px; padding: 40px; border: 1px solid #1e293b; box-shadow: 0 40px 80px rgba(0,0,0,0.8); }
+            h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 3.2rem; color: #38bdf8; border-bottom: 4px solid #38bdf8; padding-bottom: 10px; margin-bottom: 35px; }
+            table.dataTable { background: transparent !important; color: white !important; border: none !important; }
+            table.dataTable thead th { background: #1e293b !important; color: #38bdf8 !important; text-transform: uppercase; border: none !important; padding: 18px !important; text-align: center; }
+            table.dataTable tbody tr { background: transparent !important; border-bottom: 1px solid #1e293b !important; }
+            .team-logo { width: 34px; height: 34px; margin-right: 15px; vertical-align: middle; }
+            .pts-glow { color: #38bdf8 !important; font-weight: 900; font-size: 1.4rem; background: rgba(56, 189, 248, 0.15) !important; text-align: center; border-radius: 8px; }
+            .pos-badge { background: #38bdf8; color: #020617; padding: 3px 10px; border-radius: 5px; font-weight: 800; font-size: 0.9rem; }
+            .stat-cell { text-align: center; font-weight: 700; font-size: 1.15rem; }
+        </style>
+    </head>
+    <body>
+        <div class="app-wrapper">
+            <div class="d-flex justify-content-between align-items-end">
+                <h1>NHL INTEL CENTER V6</h1>
+                <p class="text-muted mb-3">LAST SYNC: 16:27:44</p>
+            </div>
+            <table id="mainTable" class="display table" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>PLAYER</th><th>TEAM</th><th class='text-center'>POS</th><th class='text-center'>GP</th><th class='text-center'>G</th><th class='text-center'>A</th><th class='text-center'>PTS</th><th class='text-center'>SOG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+        <tr>
+            <td><b>Nikita Kucherov</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">64</td>
+            <td class="stat-cell text-warning">40</td>
+            <td class="stat-cell text-primary">78</td>
+            <td class="pts-glow">118</td>
+            <td class="stat-cell">198</td>
+        </tr>
+        <tr>
+            <td><b>Connor McDavid</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">71</td>
+            <td class="stat-cell text-warning">38</td>
+            <td class="stat-cell text-primary">78</td>
+            <td class="pts-glow">116</td>
+            <td class="stat-cell">257</td>
+        </tr>
+        <tr>
+            <td><b>Nathan MacKinnon</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">45</td>
+            <td class="stat-cell text-primary">69</td>
+            <td class="pts-glow">114</td>
+            <td class="stat-cell">300</td>
+        </tr>
+        <tr>
+            <td><b>Leon Draisaitl</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">35</td>
+            <td class="stat-cell text-primary">62</td>
+            <td class="pts-glow">97</td>
+            <td class="stat-cell">186</td>
+        </tr>
+        <tr>
+            <td><b>Macklin Celebrini</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">35</td>
+            <td class="stat-cell text-primary">61</td>
+            <td class="pts-glow">96</td>
+            <td class="stat-cell">236</td>
+        </tr>
+        <tr>
+            <td><b>David Pastrnak</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">58</td>
+            <td class="pts-glow">86</td>
+            <td class="stat-cell">226</td>
+        </tr>
+        <tr>
+            <td><b>Nick Suzuki</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">61</td>
+            <td class="pts-glow">85</td>
+            <td class="stat-cell">152</td>
+        </tr>
+        <tr>
+            <td><b>Martin Necas</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">32</td>
+            <td class="stat-cell text-primary">52</td>
+            <td class="pts-glow">84</td>
+            <td class="stat-cell">169</td>
+        </tr>
+        <tr>
+            <td><b>Mark Scheifele</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">31</td>
+            <td class="stat-cell text-primary">52</td>
+            <td class="pts-glow">83</td>
+            <td class="stat-cell">147</td>
+        </tr>
+        <tr>
+            <td><b>Jason Robertson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">38</td>
+            <td class="stat-cell text-primary">44</td>
+            <td class="pts-glow">82</td>
+            <td class="stat-cell">243</td>
+        </tr>
+        <tr>
+            <td><b>Kirill Kaprizov</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">38</td>
+            <td class="stat-cell text-primary">42</td>
+            <td class="pts-glow">80</td>
+            <td class="stat-cell">242</td>
+        </tr>
+        <tr>
+            <td><b>Evan Bouchard</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">71</td>
+            <td class="stat-cell text-warning">19</td>
+            <td class="stat-cell text-primary">60</td>
+            <td class="pts-glow">79</td>
+            <td class="stat-cell">198</td>
+        </tr>
+        <tr>
+            <td><b>Kyle Connor</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">31</td>
+            <td class="stat-cell text-primary">47</td>
+            <td class="pts-glow">78</td>
+            <td class="stat-cell">226</td>
+        </tr>
+        <tr>
+            <td><b>Zach Werenski</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">62</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">55</td>
+            <td class="pts-glow">75</td>
+            <td class="stat-cell">219</td>
+        </tr>
+        <tr>
+            <td><b>Matt Boldy</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">38</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">75</td>
+            <td class="stat-cell">225</td>
+        </tr>
+        <tr>
+            <td><b>Wyatt Johnston</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">37</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">74</td>
+            <td class="stat-cell">179</td>
+        </tr>
+        <tr>
+            <td><b>Cole Caufield</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">43</td>
+            <td class="stat-cell text-primary">31</td>
+            <td class="pts-glow">74</td>
+            <td class="stat-cell">208</td>
+        </tr>
+        <tr>
+            <td><b>Jack Eichel</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">62</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">50</td>
+            <td class="pts-glow">74</td>
+            <td class="stat-cell">222</td>
+        </tr>
+        <tr>
+            <td><b>Alex DeBrincat</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">35</td>
+            <td class="stat-cell text-primary">38</td>
+            <td class="pts-glow">73</td>
+            <td class="stat-cell">245</td>
+        </tr>
+        <tr>
+            <td><b>Artemi Panarin</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">49</td>
+            <td class="pts-glow">73</td>
+            <td class="stat-cell">193</td>
+        </tr>
+        <tr>
+            <td><b>Tim Stützle</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">32</td>
+            <td class="stat-cell text-primary">40</td>
+            <td class="pts-glow">72</td>
+            <td class="stat-cell">169</td>
+        </tr>
+        <tr>
+            <td><b>Jake Guentzel</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">31</td>
+            <td class="stat-cell text-primary">41</td>
+            <td class="pts-glow">72</td>
+            <td class="stat-cell">181</td>
+        </tr>
+        <tr>
+            <td><b>Tage Thompson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">36</td>
+            <td class="stat-cell text-primary">36</td>
+            <td class="pts-glow">72</td>
+            <td class="stat-cell">239</td>
+        </tr>
+        <tr>
+            <td><b>Sebastian Aho</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">47</td>
+            <td class="pts-glow">71</td>
+            <td class="stat-cell">166</td>
+        </tr>
+        <tr>
+            <td><b>Cale Makar</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">50</td>
+            <td class="pts-glow">70</td>
+            <td class="stat-cell">183</td>
+        </tr>
+        <tr>
+            <td><b>Quinn Hughes</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">6</td>
+            <td class="stat-cell text-primary">63</td>
+            <td class="pts-glow">69</td>
+            <td class="stat-cell">168</td>
+        </tr>
+        <tr>
+            <td><b>Mikko Rantanen</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">54</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">49</td>
+            <td class="pts-glow">69</td>
+            <td class="stat-cell">126</td>
+        </tr>
+        <tr>
+            <td><b>Lane Hutson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">11</td>
+            <td class="stat-cell text-primary">58</td>
+            <td class="pts-glow">69</td>
+            <td class="stat-cell">111</td>
+        </tr>
+        <tr>
+            <td><b>Mitch Marner</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">19</td>
+            <td class="stat-cell text-primary">50</td>
+            <td class="pts-glow">69</td>
+            <td class="stat-cell">132</td>
+        </tr>
+        <tr>
+            <td><b>Lucas Raymond</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">22</td>
+            <td class="stat-cell text-primary">46</td>
+            <td class="pts-glow">68</td>
+            <td class="stat-cell">148</td>
+        </tr>
+        <tr>
+            <td><b>Clayton Keller</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">22</td>
+            <td class="stat-cell text-primary">45</td>
+            <td class="pts-glow">67</td>
+            <td class="stat-cell">195</td>
+        </tr>
+        <tr>
+            <td><b>Brandon Hagel</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">63</td>
+            <td class="stat-cell text-warning">32</td>
+            <td class="stat-cell text-primary">35</td>
+            <td class="pts-glow">67</td>
+            <td class="stat-cell">183</td>
+        </tr>
+        <tr>
+            <td><b>Mika Zibanejad</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">29</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">66</td>
+            <td class="stat-cell">179</td>
+        </tr>
+        <tr>
+            <td><b>Connor Bedard</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">56</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">65</td>
+            <td class="stat-cell">185</td>
+        </tr>
+        <tr>
+            <td><b>William Nylander</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">54</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">41</td>
+            <td class="pts-glow">65</td>
+            <td class="stat-cell">121</td>
+        </tr>
+        <tr>
+            <td><b>Ryan O'Reilly</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">40</td>
+            <td class="pts-glow">64</td>
+            <td class="stat-cell">135</td>
+        </tr>
+        <tr>
+            <td><b>Mathew Barzal</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">18</td>
+            <td class="stat-cell text-primary">46</td>
+            <td class="pts-glow">64</td>
+            <td class="stat-cell">154</td>
+        </tr>
+        <tr>
+            <td><b>Rasmus Dahlin</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">66</td>
+            <td class="stat-cell text-warning">15</td>
+            <td class="stat-cell text-primary">48</td>
+            <td class="pts-glow">63</td>
+            <td class="stat-cell">167</td>
+        </tr>
+        <tr>
+            <td><b>Mark Stone</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">48</td>
+            <td class="stat-cell text-warning">21</td>
+            <td class="stat-cell text-primary">41</td>
+            <td class="pts-glow">62</td>
+            <td class="stat-cell">103</td>
+        </tr>
+        <tr>
+            <td><b>Sidney Crosby</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">58</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">34</td>
+            <td class="pts-glow">62</td>
+            <td class="stat-cell">137</td>
+        </tr>
+        <tr>
+            <td><b>Cutter Gauthier</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">36</td>
+            <td class="stat-cell text-primary">26</td>
+            <td class="pts-glow">62</td>
+            <td class="stat-cell">255</td>
+        </tr>
+        <tr>
+            <td><b>Drake Batherson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">66</td>
+            <td class="stat-cell text-warning">27</td>
+            <td class="stat-cell text-primary">34</td>
+            <td class="pts-glow">61</td>
+            <td class="stat-cell">145</td>
+        </tr>
+        <tr>
+            <td><b>Sam Reinhart</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">64</td>
+            <td class="stat-cell text-warning">29</td>
+            <td class="stat-cell text-primary">32</td>
+            <td class="pts-glow">61</td>
+            <td class="stat-cell">166</td>
+        </tr>
+        <tr>
+            <td><b>Nick Schmaltz</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">61</td>
+            <td class="stat-cell">166</td>
+        </tr>
+        <tr>
+            <td><b>Juraj Slafkovský</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">27</td>
+            <td class="stat-cell text-primary">34</td>
+            <td class="pts-glow">61</td>
+            <td class="stat-cell">151</td>
+        </tr>
+        <tr>
+            <td><b>Morgan Geekie</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">34</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">61</td>
+            <td class="stat-cell">158</td>
+        </tr>
+        <tr>
+            <td><b>Darren Raddysh</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">61</td>
+            <td class="stat-cell text-warning">18</td>
+            <td class="stat-cell text-primary">42</td>
+            <td class="pts-glow">60</td>
+            <td class="stat-cell">170</td>
+        </tr>
+        <tr>
+            <td><b>Travis Konecny</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">65</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">35</td>
+            <td class="pts-glow">60</td>
+            <td class="stat-cell">144</td>
+        </tr>
+        <tr>
+            <td><b>Filip Forsberg</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">30</td>
+            <td class="stat-cell text-primary">29</td>
+            <td class="pts-glow">59</td>
+            <td class="stat-cell">214</td>
+        </tr>
+        <tr>
+            <td><b>Andrei Svechnikov</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">34</td>
+            <td class="pts-glow">59</td>
+            <td class="stat-cell">174</td>
+        </tr>
+        <tr>
+            <td><b>Dylan Guenther</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">34</td>
+            <td class="stat-cell text-primary">25</td>
+            <td class="pts-glow">59</td>
+            <td class="stat-cell">212</td>
+        </tr>
+        <tr>
+            <td><b>Adrian Kempe</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">26</td>
+            <td class="stat-cell text-primary">33</td>
+            <td class="pts-glow">59</td>
+            <td class="stat-cell">191</td>
+        </tr>
+        <tr>
+            <td><b>Kirill Marchenko</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">63</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">33</td>
+            <td class="pts-glow">58</td>
+            <td class="stat-cell">185</td>
+        </tr>
+        <tr>
+            <td><b>Alex Tuch</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">30</td>
+            <td class="pts-glow">58</td>
+            <td class="stat-cell">164</td>
+        </tr>
+        <tr>
+            <td><b>Miro Heiskanen</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">9</td>
+            <td class="stat-cell text-primary">49</td>
+            <td class="pts-glow">58</td>
+            <td class="stat-cell">134</td>
+        </tr>
+        <tr>
+            <td><b>Matthew Knies</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">18</td>
+            <td class="stat-cell text-primary">39</td>
+            <td class="pts-glow">57</td>
+            <td class="stat-cell">126</td>
+        </tr>
+        <tr>
+            <td><b>John Tavares</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">71</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">32</td>
+            <td class="pts-glow">57</td>
+            <td class="stat-cell">173</td>
+        </tr>
+        <tr>
+            <td><b>Pavel Dorofeyev</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">34</td>
+            <td class="stat-cell text-primary">23</td>
+            <td class="pts-glow">57</td>
+            <td class="stat-cell">196</td>
+        </tr>
+        <tr>
+            <td><b>Nikolaj Ehlers</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">36</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">169</td>
+        </tr>
+        <tr>
+            <td><b>Leo Carlsson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">57</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">32</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">147</td>
+        </tr>
+        <tr>
+            <td><b>Brock Nelson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">31</td>
+            <td class="stat-cell text-primary">25</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">164</td>
+        </tr>
+        <tr>
+            <td><b>Gabriel Vilardi</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">26</td>
+            <td class="stat-cell text-primary">30</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">132</td>
+        </tr>
+        <tr>
+            <td><b>Bryan Rust</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">62</td>
+            <td class="stat-cell text-warning">26</td>
+            <td class="stat-cell text-primary">30</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">162</td>
+        </tr>
+        <tr>
+            <td><b>Seth Jarvis</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">61</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">28</td>
+            <td class="pts-glow">56</td>
+            <td class="stat-cell">192</td>
+        </tr>
+        <tr>
+            <td><b>Dylan Larkin</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">63</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">191</td>
+        </tr>
+        <tr>
+            <td><b>Trevor Zegras</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">22</td>
+            <td class="stat-cell text-primary">33</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">146</td>
+        </tr>
+        <tr>
+            <td><b>Steven Stamkos</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">33</td>
+            <td class="stat-cell text-primary">22</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">164</td>
+        </tr>
+        <tr>
+            <td><b>Jesper Bratt</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">17</td>
+            <td class="stat-cell text-primary">38</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">153</td>
+        </tr>
+        <tr>
+            <td><b>Jack Hughes</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">48</td>
+            <td class="stat-cell text-warning">18</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">170</td>
+        </tr>
+        <tr>
+            <td><b>Charlie Coyle</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">17</td>
+            <td class="stat-cell text-primary">38</td>
+            <td class="pts-glow">55</td>
+            <td class="stat-cell">125</td>
+        </tr>
+        <tr>
+            <td><b>Tomas Hertl</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">30</td>
+            <td class="pts-glow">54</td>
+            <td class="stat-cell">175</td>
+        </tr>
+        <tr>
+            <td><b>Erik Karlsson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">64</td>
+            <td class="stat-cell text-warning">11</td>
+            <td class="stat-cell text-primary">43</td>
+            <td class="pts-glow">54</td>
+            <td class="stat-cell">149</td>
+        </tr>
+        <tr>
+            <td><b>Brad Marchand</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">52</td>
+            <td class="stat-cell text-warning">27</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">54</td>
+            <td class="stat-cell">138</td>
+        </tr>
+        <tr>
+            <td><b>Anthony Mantha</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">26</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">53</td>
+            <td class="stat-cell">130</td>
+        </tr>
+        <tr>
+            <td><b>Auston Matthews</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">60</td>
+            <td class="stat-cell text-warning">27</td>
+            <td class="stat-cell text-primary">26</td>
+            <td class="pts-glow">53</td>
+            <td class="stat-cell">227</td>
+        </tr>
+        <tr>
+            <td><b>Charlie McAvoy</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">58</td>
+            <td class="stat-cell text-warning">9</td>
+            <td class="stat-cell text-primary">44</td>
+            <td class="pts-glow">53</td>
+            <td class="stat-cell">95</td>
+        </tr>
+        <tr>
+            <td><b>Sam Bennett</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">28</td>
+            <td class="pts-glow">53</td>
+            <td class="stat-cell">177</td>
+        </tr>
+        <tr>
+            <td><b>Nico Hischier</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">28</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">179</td>
+        </tr>
+        <tr>
+            <td><b>Alex Ovechkin</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">201</td>
+        </tr>
+        <tr>
+            <td><b>Beckett Sennecke</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">32</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">166</td>
+        </tr>
+        <tr>
+            <td><b>Tom Wilson</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">60</td>
+            <td class="stat-cell text-warning">25</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">130</td>
+        </tr>
+        <tr>
+            <td><b>Adam Fantilli</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">21</td>
+            <td class="stat-cell text-primary">31</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">185</td>
+        </tr>
+        <tr>
+            <td><b>Ivan Demidov</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">14</td>
+            <td class="stat-cell text-primary">38</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">104</td>
+        </tr>
+        <tr>
+            <td><b>Evgeni Malkin</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">49</td>
+            <td class="stat-cell text-warning">15</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">52</td>
+            <td class="stat-cell">129</td>
+        </tr>
+        <tr>
+            <td><b>Dylan Cozens</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">69</td>
+            <td class="stat-cell text-warning">24</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">51</td>
+            <td class="stat-cell">166</td>
+        </tr>
+        <tr>
+            <td><b>Ryan Nugent-Hopkins</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">61</td>
+            <td class="stat-cell text-warning">18</td>
+            <td class="stat-cell text-primary">33</td>
+            <td class="pts-glow">51</td>
+            <td class="stat-cell">108</td>
+        </tr>
+        <tr>
+            <td><b>Pavel Zacha</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">23</td>
+            <td class="stat-cell text-primary">28</td>
+            <td class="pts-glow">51</td>
+            <td class="stat-cell">112</td>
+        </tr>
+        <tr>
+            <td><b>Jakob Chychrun</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">23</td>
+            <td class="stat-cell text-primary">28</td>
+            <td class="pts-glow">51</td>
+            <td class="stat-cell">203</td>
+        </tr>
+        <tr>
+            <td><b>Matthew Schaefer</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">D</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">22</td>
+            <td class="stat-cell text-primary">29</td>
+            <td class="pts-glow">51</td>
+            <td class="stat-cell">176</td>
+        </tr>
+        <tr>
+            <td><b>Dylan Strome</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">16</td>
+            <td class="stat-cell text-primary">34</td>
+            <td class="pts-glow">50</td>
+            <td class="stat-cell">129</td>
+        </tr>
+        <tr>
+            <td><b>Jordan Eberle</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">22</td>
+            <td class="stat-cell text-primary">27</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">148</td>
+        </tr>
+        <tr>
+            <td><b>Carter Verhaeghe</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">67</td>
+            <td class="stat-cell text-warning">20</td>
+            <td class="stat-cell text-primary">29</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">161</td>
+        </tr>
+        <tr>
+            <td><b>Bo Horvat</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">56</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">21</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">186</td>
+        </tr>
+        <tr>
+            <td><b>Ryan McLeod</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">12</td>
+            <td class="stat-cell text-primary">37</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">83</td>
+        </tr>
+        <tr>
+            <td><b>Tyler Bertuzzi</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">66</td>
+            <td class="stat-cell text-warning">28</td>
+            <td class="stat-cell text-primary">21</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">141</td>
+        </tr>
+        <tr>
+            <td><b>Troy Terry</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">49</td>
+            <td class="stat-cell text-warning">14</td>
+            <td class="stat-cell text-primary">35</td>
+            <td class="pts-glow">49</td>
+            <td class="stat-cell">117</td>
+        </tr>
+        <tr>
+            <td><b>Luke Evangelista</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">R</span></td>
+            <td class="stat-cell">68</td>
+            <td class="stat-cell text-warning">9</td>
+            <td class="stat-cell text-primary">39</td>
+            <td class="pts-glow">48</td>
+            <td class="stat-cell">144</td>
+        </tr>
+        <tr>
+            <td><b>Anthony Cirelli</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">60</td>
+            <td class="stat-cell text-warning">19</td>
+            <td class="stat-cell text-primary">29</td>
+            <td class="pts-glow">48</td>
+            <td class="stat-cell">106</td>
+        </tr>
+        <tr>
+            <td><b>Ivan Barbashev</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">L</span></td>
+            <td class="stat-cell">70</td>
+            <td class="stat-cell text-warning">19</td>
+            <td class="stat-cell text-primary">29</td>
+            <td class="pts-glow">48</td>
+            <td class="stat-cell">112</td>
+        </tr>
+        <tr>
+            <td><b>Vincent Trocheck</b></td>
+            <td>
+                <img src="https://assets.nhle.com/logos/nhl/svg/N/A_light.svg" class="team-logo">
+                <span style="color:#333333; font-weight:700;">N/A</span>
+            </td>
+            <td class="text-center"><span class="pos-badge">C</span></td>
+            <td class="stat-cell">54</td>
+            <td class="stat-cell text-warning">15</td>
+            <td class="stat-cell text-primary">33</td>
+            <td class="pts-glow">48</td>
+            <td class="stat-cell">95</td>
+        </tr>
+                </tbody>
+            </table>
+        </div>
+        <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+        <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+        <script>
+            $(document).ready(function() {
+                $('#mainTable').DataTable({ "pageLength": 25, "order": [[ 6, "desc" ]] });
+            });
+        </script>
+    </body>
+    </html>
+    
