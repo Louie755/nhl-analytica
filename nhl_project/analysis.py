@@ -12,12 +12,12 @@ import pandas as pd
 
 # [여기가 루이님이 넣으실 부분입니다]
 @app.route('/nhlanalytica')
-def nhl_index():
+def nhl_nhl_main():
     return render_template('nhl_dashboard.html')
 
 # 2. 메인 페이지 (루트 경로)
 @app.route('/')
-def nhl_index():
+def nhl_nhl_main():
     return render_template('first.html')
 
 # 3. 홈 페이지
@@ -111,7 +111,7 @@ def get_nhl_data():
     return jsonify({"skaters": skaters, "goalies": goalies})
 
 @app.route('/')
-def nhl_index():
+def nhl_nhl_main():
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
@@ -125,7 +125,7 @@ def nhl_index():
         <style>
             :root { --accent: #38bdf8; --bg: #030712; --card: rgba(31, 41, 55, 0.45); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-            header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
+            header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-nhl_main: 1000; backdrop-filter: blur(10px); }
             
             /* 로고 스타일 */
             .logo { 
@@ -150,7 +150,7 @@ def nhl_index():
             .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; }
             .card:hover { transform: translateY(-5px); border-color: var(--accent); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
-            .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
+            .modal { display:none; position:fixed; z-nhl_main:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
             .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; }
@@ -166,7 +166,7 @@ def nhl_index():
             .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 18px; margin-top: 15px; text-align: center; }
             .prob-box b { color: #fbbf24; font-size: 2.2rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
-            #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
+            #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-nhl_main: 9999; color: var(--accent); }
         </style>
     </head>
     <body>
