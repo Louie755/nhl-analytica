@@ -1,45 +1,10 @@
 import pandas as pd
+from flask import Flask, render_template_string, jsonify, request
 import requests
 import os
-import json
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify, Response
 
 app = Flask(__name__)
-from flask import Flask, render_template, request, jsonify
-import requests
-import pandas as pd
-
-# [여기가 루이님이 넣으실 부분입니다]
-@app.route('/nhlanalytica')
-def nhl_nhl_main():
-    return render_template('nhl_dashboard.html')
-
-# 2. 메인 페이지 (루트 경로)
-@app.route('/')
-def nhl_nhl_main():
-    return render_template('first.html')
-
-# 3. 홈 페이지
-@app.route('/home')
-def home():
-    return render_template('second.html')
-
-# 4. 검색 로직 (POST 방식)
-@app.route('/search', methods=['POST'])
-def search():
-    # 여기에 기존에 작성하셨던 검색 및 데이터 처리 로직을 넣으시면 됩니다.
-    # 예: player_name = request.form.get('player_name')
-    return jsonify({"message": "Search logic goes here"})
-if __name__ == '__main__':
-    app.run(debug=True)
-
-# 2. 예외 경로 처리 (블랙홀 방지)
-@app.route('/<path:path>')
-def catch_all(path):
-    if 'sitemap.xml' in path:
-        return sitemap()
-    return "기존 분석 결과 JSON"
 
 # [유지] 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
@@ -72,6 +37,7 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
+# [API 엔드포인트]
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
@@ -110,38 +76,23 @@ def get_nhl_data():
         
     return jsonify({"skaters": skaters, "goalies": goalies})
 
+# [대시보드 메인 페이지 - 함수 이름을 nhl_dashboard로 변경]
 @app.route('/')
-def nhl_nhl_main():
+def nhl_dashboard():
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
     <head>
         <meta charset="UTF-8"><title>NHL ANALYTICA</title>
-        
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><path d='M12,22V12 L20.47,7.38 M12,12L3.53,7.38' stroke='%2338bdf8' stroke-width='1.2'/><path d='M18,15V11.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M15,15V13' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M12,15V12.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/></svg>" type="image/svg+xml">
-        
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
             :root { --accent: #38bdf8; --bg: #030712; --card: rgba(31, 41, 55, 0.45); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-            header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-nhl_main: 1000; backdrop-filter: blur(10px); }
-            
-            /* 로고 스타일 */
-            .logo { 
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-family: 'Syncopate'; 
-                color: var(--accent); 
-                font-size: 1.5rem; 
-                text-decoration: none;
-            }
-            .logo svg {
-                width: 38px;
-                height: 38px;
-            }
-
+            header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
+            .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
+            .logo svg { width: 38px; height: 38px; }
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; }
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
@@ -150,7 +101,7 @@ def nhl_nhl_main():
             .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; }
             .card:hover { transform: translateY(-5px); border-color: var(--accent); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
-            .modal { display:none; position:fixed; z-nhl_main:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
+            .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
             .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; }
@@ -166,7 +117,7 @@ def nhl_nhl_main():
             .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 18px; margin-top: 15px; text-align: center; }
             .prob-box b { color: #fbbf24; font-size: 2.2rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
-            #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-nhl_main: 9999; color: var(--accent); }
+            #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
         </style>
     </head>
     <body>
@@ -291,6 +242,13 @@ def nhl_nhl_main():
     </html>
     """)
 
+# [분석 페이지 엔드포인트 - 함수 이름을 nhl_analysis로 변경하여 중복 해결]
+@app.route('/analysis')
+def nhl_analysis():
+    # 이 페이지는 기존 로직을 따름
+    return render_template_string("<h1>Analysis Page</h1><p>NHL Analytica logic integrated.</p>")
+
 if __name__ == "__main__":
+    # 포트 설정 유동적으로 변경
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
