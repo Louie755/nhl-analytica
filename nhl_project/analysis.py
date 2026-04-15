@@ -17,7 +17,7 @@ def nhl_index():
 
 # 2. 메인 페이지 (루트 경로)
 @app.route('/')
-def index():
+def nhl_index():
     return render_template('first.html')
 
 # 3. 홈 페이지
@@ -111,7 +111,7 @@ def get_nhl_data():
     return jsonify({"skaters": skaters, "goalies": goalies})
 
 @app.route('/')
-def index():
+def nhl_index():
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
