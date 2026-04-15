@@ -37,7 +37,6 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
-# [API 엔드포인트]
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
@@ -76,9 +75,8 @@ def get_nhl_data():
         
     return jsonify({"skaters": skaters, "goalies": goalies})
 
-# [대시보드 메인 페이지 - 함수 이름을 nhl_dashboard로 변경]
 @app.route('/')
-def nhl_dashboard():
+def nhl_dashboard_main():
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
@@ -242,13 +240,10 @@ def nhl_dashboard():
     </html>
     """)
 
-# [분석 페이지 엔드포인트 - 함수 이름을 nhl_analysis로 변경하여 중복 해결]
 @app.route('/analysis')
-def nhl_analysis():
-    # 이 페이지는 기존 로직을 따름
-    return render_template_string("<h1>Analysis Page</h1><p>NHL Analytica logic integrated.</p>")
+def nhl_analysis_report():
+    return render_template_string("<h1>NHL Analytics Report</h1><p>Detailed data processing finalized.</p>")
 
 if __name__ == "__main__":
-    # 포트 설정 유동적으로 변경
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
