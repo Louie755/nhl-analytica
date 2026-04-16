@@ -47,7 +47,8 @@ def get_today_scorers():
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
-    # 사진 1번의 134점 데이터를 불러오기 위해 2425를 기본 실시간 시즌으로 명시합니다.
+    # [데이터 수정] McDavid 134점이 나오는 진짜 시즌은 20242025입니다.
+    # 20252026은 아직 정규시즌 데이터가 없기 때문에 기본값을 20242025로 강제 설정합니다.
     season = request.args.get('season', '20242025')
     game_type = request.args.get('game_type', '2')
     
@@ -102,9 +103,12 @@ def nhl_dashboard_main():
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
-            .header-right { display: flex; align-items: center; gap: 15px; }
+            
+            /* [중요] 드랍다운 위치를 로고와 검색창 사이에 예쁘게 배치 */
+            .header-controls { display: flex; align-items: center; gap: 12px; }
             .select-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 0.8rem; cursor: pointer; outline: none; }
             .select-style option { background: #030712; color: white; }
+
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 200px; outline: none; }
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
@@ -144,7 +148,7 @@ def nhl_dashboard_main():
                 </svg>
                 <span>NHL ANALYTICA</span>
             </a>
-            <div class="header-right">
+            <div class="header-controls">
                 <select id="seasonSelect" class="select-style" onchange="init()">
                     <option value="20242025">Current Season</option>
                     <option value="20232024">2023-2024</option>
@@ -195,8 +199,9 @@ def nhl_dashboard_main():
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 
+                // [수정] 모든 선수를 즉시 렌더링하도록 딜레이 제거
                 grid.innerHTML = filtered.map(p => {
-                    const trend = p.trending ? '<span style="color:#2ecc71; margin-left:4px;">▲</span>' : '';
+                    const trend = p.trending ? '<span class="trend-up" style="color:#2ecc71; margin-left:4px;">▲</span>' : '';
                     const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
                     return `
                     <div class="card" onclick="openModal('${p.id}', '${p.type}')" style="--t-color:${p.col}">
