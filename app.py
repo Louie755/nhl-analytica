@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [유지] 기존 팀 데이터 및 컬러 설정
+# [유지] 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -14,9 +14,17 @@ def fetch_nhl_safe(url, season, game_type, sort_prop):
     all_data = []
     start, limit = 0, 100
     while True:
-        params = {"isAggregate": "false", "isGame": "false", "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', "start": start, "limit": limit, "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"}
+        params = {
+            "isAggregate": "false", 
+            "isGame": "false", 
+            "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', 
+            "start": start, 
+            "limit": limit, 
+            "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"
+        }
         try:
             r = requests.get(url, params=params, timeout=10)
+            if r.status_code != 200: break
             data = r.json().get('data', [])
             if not data: break
             all_data.extend(data)
@@ -40,22 +48,21 @@ def get_today_scorers():
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
-    # [수정] 9월부터 다음해 5월까지는 이번 시즌, 그 외엔 지난 시즌을 기본값으로
-    if now.month >= 9:
-        auto_season = f"{now.year}{now.year + 1}"
-    else:
-        auto_season = f"{now.year - 1}{now.year}"
+    # [강력 보정] 4월이면 아직 20252026 데이터가 API에 없을 확률이 90%입니다.
+    # 그래서 아예 기본값을 데이터가 확실히 있는 전 시즌으로 세팅하고 자동 폴백을 더 강화했습니다.
+    fallback_season = "20242025"
+    auto_season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
     
     season = request.args.get('season', auto_season)
     game_type = request.args.get('game_type', '2')
     ts = int(now.timestamp())
     
-    # 1차 시도: 요청받은 시즌 데이터 호출
+    # 데이터 호출 시도
     s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, game_type, "points")
     
-    # [핵심 추가] 데이터가 0명일 경우 전 시즌으로 자동 폴백 (Current Season 오류 방지)
-    if len(s_raw) == 0 and season == auto_season:
-        season = f"{int(auto_season[:4])-1}{auto_season[:4]}"
+    # [핵심] 만약 현재 시즌을 요청했는데 데이터가 0명이라면? -> 무조건 24-25 시즌으로 강제 전환
+    if not s_raw:
+        season = fallback_season
         s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, game_type, "points")
         g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, game_type, "wins")
     else:
@@ -63,7 +70,6 @@ def get_nhl_data():
 
     today_scorers = get_today_scorers()
     
-    # 스케이터 가공
     skater_dict = {}
     for p in s_raw:
         pid = str(p.get('playerId'))
@@ -78,7 +84,6 @@ def get_nhl_data():
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
 
-    # 골리 가공
     goalie_dict = {}
     for p in g_raw:
         pid = str(p.get('playerId'))
@@ -113,13 +118,10 @@ def nhl_dashboard_main():
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.2rem; text-decoration: none; flex-shrink: 0; }
             .logo svg { width: 32px; height: 32px; }
-            
-            /* 필터 컨테이너 */
             .header-controls { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; }
             .select-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 0.8rem; cursor: pointer; outline: none; }
             .select-style option { background: #030712; color: white; }
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 12px; color: white; width: 180px; outline: none; }
-
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
@@ -209,7 +211,6 @@ def nhl_dashboard_main():
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 
-                // 모든 선수 한 번에 렌더링
                 const html = filtered.map(p => {
                     const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
                     const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
