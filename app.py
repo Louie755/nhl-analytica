@@ -40,15 +40,30 @@ def get_today_scorers():
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
-    auto_season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+    # [수정] 9월부터 다음해 5월까지는 이번 시즌, 그 외엔 지난 시즌을 기본값으로
+    if now.month >= 9:
+        auto_season = f"{now.year}{now.year + 1}"
+    else:
+        auto_season = f"{now.year - 1}{now.year}"
+    
     season = request.args.get('season', auto_season)
     game_type = request.args.get('game_type', '2')
-    
     ts = int(now.timestamp())
+    
+    # 1차 시도: 요청받은 시즌 데이터 호출
     s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, game_type, "points")
-    g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, game_type, "wins")
+    
+    # [핵심 추가] 데이터가 0명일 경우 전 시즌으로 자동 폴백 (Current Season 오류 방지)
+    if len(s_raw) == 0 and season == auto_season:
+        season = f"{int(auto_season[:4])-1}{auto_season[:4]}"
+        s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, game_type, "points")
+        g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, game_type, "wins")
+    else:
+        g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, game_type, "wins")
+
     today_scorers = get_today_scorers()
     
+    # 스케이터 가공
     skater_dict = {}
     for p in s_raw:
         pid = str(p.get('playerId'))
@@ -63,6 +78,7 @@ def get_nhl_data():
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
 
+    # 골리 가공
     goalie_dict = {}
     for p in g_raw:
         pid = str(p.get('playerId'))
@@ -94,21 +110,16 @@ def nhl_dashboard_main():
         <style>
             :root { --accent: #38bdf8; --bg: #030712; --card: rgba(31, 41, 55, 0.45); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-            
-            /* 헤더 레이아웃 조정 */
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.2rem; text-decoration: none; flex-shrink: 0; }
             .logo svg { width: 32px; height: 32px; }
             
-            /* 필터와 검색창을 감싸는 컨테이너 */
-            .header-controls { display: flex; align-items: center; gap: 15px; flex-grow: 1; justify-content: flex-end; }
-            
-            .dropdown-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 0.8rem; cursor: pointer; outline: none; }
-            .dropdown-style option { background: #030712; color: white; }
-            
+            /* 필터 컨테이너 */
+            .header-controls { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; }
+            .select-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 0.8rem; cursor: pointer; outline: none; }
+            .select-style option { background: #030712; color: white; }
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 12px; color: white; width: 180px; outline: none; }
-            
-            /* 기존 스타일 유지 */
+
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
@@ -137,7 +148,6 @@ def nhl_dashboard_main():
     </head>
     <body>
         <div id="loading"><h1>DEFINING PERFORMANCE GRADES...</h1><p>Syncing Impact Tiers. Please wait.</p></div>
-        
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -149,14 +159,13 @@ def nhl_dashboard_main():
                 </svg>
                 <span>NHL ANALYTICA</span>
             </a>
-            
             <div class="header-controls">
-                <select id="seasonSelect" class="dropdown-style" onchange="init()">
+                <select id="seasonSelect" class="select-style" onchange="init()">
                     <option value="{{auto_season}}">Current Season</option>
                     <option value="20242025">2024-2025</option>
                     <option value="20232024">2023-2024</option>
                 </select>
-                <select id="typeSelect" class="dropdown-style" onchange="init()">
+                <select id="typeSelect" class="select-style" onchange="init()">
                     <option value="2">Regular Season</option>
                     <option value="3">Playoffs 🏆</option>
                 </select>
@@ -167,7 +176,6 @@ def nhl_dashboard_main():
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="this.style.display='none'"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas></div></div></div>
-        
         <script>
             let skaters = []; let goalies = [];
             let currentTab = 'skater'; let chartInstance = null;
@@ -183,7 +191,7 @@ def nhl_dashboard_main():
                     document.getElementById('loading').style.display = 'none';
                     render();
                 } catch (e) {
-                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1><p>Check API response.</p>";
+                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1><p>Restart Server.</p>";
                 }
             }
 
@@ -201,7 +209,7 @@ def nhl_dashboard_main():
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 
-                // 모든 선수 무제한 렌더링
+                // 모든 선수 한 번에 렌더링
                 const html = filtered.map(p => {
                     const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
                     const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
@@ -221,11 +229,12 @@ def nhl_dashboard_main():
                 const data = type === 'skater' ? skaters : goalies;
                 const p = data.find(x => x.id === id);
                 let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
+                let f_icon = p.ppg >= 0.7 ? "▲" : "▼", f_txt = p.ppg >= 0.7 ? "Hot" : "Cold", f_col = p.ppg >= 0.7 ? "#ff6b6b" : "#38bdf8";
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val">${irGrade}</span></div>`;
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
-                
-                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val">${irGrade}</span></div></div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
+                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p);
             }
