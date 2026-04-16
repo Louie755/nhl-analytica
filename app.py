@@ -14,8 +14,14 @@ def fetch_nhl_safe(url, season, game_type, sort_prop):
     all_data = []
     start, limit = 0, 100
     while True:
-        # gameTypeId=2(정규), 3(플옵)을 동적으로 처리
-        params = {"isAggregate": "false", "isGame": "false", "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', "start": start, "limit": limit, "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"}
+        params = {
+            "isAggregate": "false",
+            "isGame": "false",
+            "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]',
+            "start": start,
+            "limit": limit,
+            "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"
+        }
         try:
             r = requests.get(url, params=params, timeout=10)
             data = r.json().get('data', [])
@@ -41,7 +47,7 @@ def get_today_scorers():
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
-    # 4월 현재 데이터가 가장 확실한 20242025를 기본값으로 설정
+    # 사진 1번의 134점 데이터를 불러오기 위해 2425를 기본 실시간 시즌으로 명시합니다.
     season = request.args.get('season', '20242025')
     game_type = request.args.get('game_type', '2')
     
@@ -50,7 +56,6 @@ def get_nhl_data():
     g_raw = fetch_nhl_safe("https://api.nhle.com/stats/rest/en/goalie/summary", season, game_type, "wins")
     today_scorers = get_today_scorers()
     
-    # [유지] Louie님의 데이터 가공 로직
     skater_dict = {}
     for p in s_raw:
         pid = str(p.get('playerId'))
@@ -97,12 +102,9 @@ def nhl_dashboard_main():
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
-            
-            /* [수정] 드롭다운 영역 레이아웃 - 원본 디자인 유지 */
-            .header-right { display: flex; align-items: center; gap: 12px; }
+            .header-right { display: flex; align-items: center; gap: 15px; }
             .select-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-size: 0.8rem; cursor: pointer; outline: none; }
             .select-style option { background: #030712; color: white; }
-
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 200px; outline: none; }
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
@@ -142,7 +144,6 @@ def nhl_dashboard_main():
                 </svg>
                 <span>NHL ANALYTICA</span>
             </a>
-            
             <div class="header-right">
                 <select id="seasonSelect" class="select-style" onchange="init()">
                     <option value="20242025">Current Season</option>
@@ -194,9 +195,8 @@ def nhl_dashboard_main():
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 
-                // [유지] Louie님의 렌더링 방식 (100명까지 즉시 노출)
-                grid.innerHTML = filtered.slice(0, 100).map(p => {
-                    const trend = p.trending ? '<span class="trend-up" style="color:#2ecc71">▲</span>' : '';
+                grid.innerHTML = filtered.map(p => {
+                    const trend = p.trending ? '<span style="color:#2ecc71; margin-left:4px;">▲</span>' : '';
                     const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
                     return `
                     <div class="card" onclick="openModal('${p.id}', '${p.type}')" style="--t-color:${p.col}">
@@ -211,13 +211,14 @@ def nhl_dashboard_main():
 
             function openModal(id, type) {
                 const data = type === 'skater' ? skaters : goalies;
-                const p = data.find(x => x.id === id);
+                const p = data.find(x => x.id == id);
                 let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
+                let f_icon = p.ppg >= 0.7 ? "▲" : "▼", f_txt = p.ppg >= 0.7 ? "Hot" : "Cold", f_col = p.ppg >= 0.7 ? "#ff6b6b" : "#38bdf8";
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val">${irGrade}</span></div>`;
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
-                
-                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val">${irGrade}</span></div></div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
+                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p);
             }
@@ -231,7 +232,7 @@ def nhl_dashboard_main():
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
                     data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: [{ data: chartData, backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 }] },
-                    options: { scales: { r: { grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be' } } }, plugins: { legend: { display: false } } }
+                    options: { scales: { r: { grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 12 } } } }, plugins: { legend: { display: false } } }
                 });
             }
             init();
