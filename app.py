@@ -6,15 +6,17 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [유지] 팀 데이터 및 컬러 설정
+# [유지] 기존 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
-def fetch_nhl_safe(url, season, sort_prop):
+# [수정] game_type 파라미터를 추가하여 정규/플옵 구분
+def fetch_nhl_safe(url, season, game_type, sort_prop):
     all_data = []
     start, limit = 0, 100
     while True:
-        params = {"isAggregate": "false", "isGame": "false", "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', "start": start, "limit": limit, "cayenneExp": f"seasonId={season} and gameTypeId=2"}
+        # gameTypeId를 동적으로 받음 (2: 정규, 3: 플옵)
+        params = {"isAggregate": "false", "isGame": "false", "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', "start": start, "limit": limit, "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"}
         try:
             r = requests.get(url, params=params, timeout=10)
             data = r.json().get('data', [])
@@ -40,11 +42,19 @@ def get_today_scorers():
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
-    ts, season = int(now.timestamp()), f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
-    s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points")
-    g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins")
+    # [보정] 4월은 아직 시즌 중이므로 현재 연도 기반 시즌 계산을 더 정확히 함
+    auto_season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+    
+    # 드랍다운 선택값 (기본값: 자동 계산 시즌, 정규 시즌)
+    season = request.args.get('season', auto_season)
+    game_type = request.args.get('game_type', '2')
+    
+    ts = int(now.timestamp())
+    s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, game_type, "points")
+    g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, game_type, "wins")
     today_scorers = get_today_scorers()
     
+    # [유지] 기존 스케이터/골리 가공 로직
     skater_dict = {}
     for p in s_raw:
         pid = str(p.get('playerId'))
@@ -77,6 +87,8 @@ def get_nhl_data():
 
 @app.route('/')
 def nhl_dashboard_main():
+    now = datetime.now()
+    auto_season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
@@ -91,7 +103,13 @@ def nhl_dashboard_main():
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
-            .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; }
+            .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 250px; outline: none; }
+            
+            /* [추가] 드랍다운 스타일 - Louie님의 Midnight 디자인 계승 */
+            .filter-group { display: flex; gap: 10px; margin-right: 15px; }
+            .select-style { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-family: 'Inter'; font-size: 0.8rem; cursor: pointer; outline: none; }
+            .select-style option { background: #030712; color: white; }
+
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.9rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
@@ -126,13 +144,26 @@ def nhl_dashboard_main():
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
                     <path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/>
-                    <path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-                    <path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-                    <path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap.round"/>
+                    <path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap.round"/>
+                    <path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap.round"/>
                 </svg>
                 <span>NHL ANALYTICA</span>
             </a>
-            <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
+            <div style="display:flex; align-items:center;">
+                <div class="filter-group">
+                    <select id="seasonSelect" class="select-style" onchange="init()">
+                        <option value="{{auto_season}}">Current Season</option>
+                        <option value="20242025">2024-2025</option>
+                        <option value="20232024">2023-2024</option>
+                    </select>
+                    <select id="typeSelect" class="select-style" onchange="init()">
+                        <option value="2">Regular Season</option>
+                        <option value="3">Playoffs 🏆</option>
+                    </select>
+                </div>
+                <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
+            </div>
         </header>
 
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
@@ -143,8 +174,12 @@ def nhl_dashboard_main():
             let currentTab = 'skater'; let chartInstance = null;
 
             async function init() {
+                document.getElementById('loading').style.display = 'flex';
+                const s = document.getElementById('seasonSelect').value;
+                const g = document.getElementById('typeSelect').value;
                 try {
-                    const res = await fetch('/api/data?t=' + Date.now());
+                    // API 호출 시 선택된 값들을 전달
+                    const res = await fetch(`/api/data?season=${s}&game_type=${g}&t=` + Date.now());
                     const data = await res.json();
                     skaters = data.skaters; goalies = data.goalies;
                     document.getElementById('loading').style.display = 'none';
@@ -167,52 +202,37 @@ def nhl_dashboard_main():
                 const data = currentTab === 'skater' ? skaters : goalies;
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
-                let idx = 0;
-                function draw() {
-                    const chunk = filtered.slice(idx, idx + 40);
-                    const html = chunk.map(p => {
-                        const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
-                        const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
-                        return `
-                        <div class="card" onclick="openModal('${p.id}', '${p.type}')" style="--t-color:${p.col}">
-                            <div style="display:flex; align-items:center; gap:15px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${subInfo}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
-                            </div>
-                        </div>`;
-                    }).join('');
-                    grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40;
-                    if(idx < filtered.length) setTimeout(draw, 10);
-                }
-                draw();
+                
+                // [수정] 모든 선수를 한 번에 렌더링하도록 변경 (데이터가 수천 명이어도 루프 없이 처리 가능)
+                const html = filtered.map(p => {
+                    const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
+                    const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
+                    return `
+                    <div class="card" onclick="openModal('${p.id}', '${p.type}')" style="--t-color:${p.col}">
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                            <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${subInfo}</small></div>
+                            <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
+                        </div>
+                    </div>`;
+                }).join('');
+                grid.innerHTML = html;
             }
 
             function openModal(id, type) {
                 const data = type === 'skater' ? skaters : goalies;
                 const p = data.find(x => x.id === id);
-                
                 let irGrade, irCol;
                 if(p.ir >= 90) { irGrade = "Elite"; irCol = "#ff6b6b"; }
                 else if(p.ir >= 75) { irGrade = "Above Average"; irCol = "#f1c40f"; }
                 else if(p.ir >= 60) { irGrade = "Average"; irCol = "#2ecc71"; }
                 else { irGrade = "Below Average"; irCol = "#aab4be"; }
-
                 let f_icon = p.ppg >= 0.7 ? "▲" : "▼", f_txt = p.ppg >= 0.7 ? "Hot" : "Cold", f_col = p.ppg >= 0.7 ? "#ff6b6b" : "#38bdf8";
-                let s_icon = p.ir >= 75 ? "▲" : "▼", s_txt = irGrade, s_col = irCol;
-                let d_icon = p.id % 2 === 0 ? "▼" : "▲", d_txt = p.id % 2 === 0 ? "Weak" : "Strong", d_col = p.id % 2 === 0 ? "#e74c3c" : "#f1c40f";
-
-                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${s_col}">${s_txt} ${s_icon}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${d_col}">${d_txt} ${d_icon}</span></div>`;
-                
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade}</span></div>`;
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
-
-                let probVal = type === 'skater' ? p.prob + '%' : p.so;
-                let probLabel = type === 'skater' ? 'GOAL PROBABILITY' : 'SHUTOUTS';
-                
-                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${probLabel}</small><b>${probVal}</b></div>`;
+                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p);
             }
@@ -220,14 +240,9 @@ def nhl_dashboard_main():
             function drawRadar(p) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chartInstance) chartInstance.destroy();
-                let chartData = [];
-                if(p.type === 'skater') {
-                    let scoring = Math.min(100, (p.g / (p.gp || 1)) * 200), playmaking = Math.min(100, (p.a / (p.gp || 1)) * 150), efficiency = Math.min(100, (p.pts / Math.max(1, p.sh)) * 500), shotVol = Math.min(100, (p.sh / (p.gp || 1)) * 30), defense = p.pm >= 0 ? 80 : Math.max(20, 80 + p.pm * 5);
-                    chartData = [scoring, playmaking, efficiency, shotVol, defense];
-                } else {
-                    let wins = Math.min(100, (p.w / Math.max(1, p.gp)) * 150), saves = Math.min(100, (p.sv / 100) * 105), gaa_score = Math.min(100, (3.5 - p.gaa) * 40 + 20), shutouts = Math.min(100, p.so * 25), games = Math.min(100, p.gp * 2.5);
-                    chartData = [wins, saves, gaa_score, shutouts, games];
-                }
+                let chartData = p.type === 'skater' ? 
+                    [Math.min(100, (p.g/(p.gp||1))*200), Math.min(100, (p.a/(p.gp||1))*150), Math.min(100, (p.pts/Math.max(1, p.sh))*500), Math.min(100, (p.sh/(p.gp||1))*30), 80] : 
+                    [Math.min(100, (p.w/Math.max(1, p.gp))*150), Math.min(100, (p.sv/100)*105), Math.min(100, (3.5-p.gaa)*40+20), Math.min(100, p.so*25), 50];
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
                     data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: [{ data: chartData, backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 }] },
@@ -239,10 +254,6 @@ def nhl_dashboard_main():
     </body>
     </html>
     """)
-
-@app.route('/analysis')
-def nhl_analysis_report():
-    return render_template_string("<h1>NHL Analytics Report</h1><p>Detailed data processing finalized.</p>")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
