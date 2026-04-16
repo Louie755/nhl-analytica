@@ -37,21 +37,31 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
-# 사이트맵 추가 부분
+# --- Sitemap.xml Route ---
 @app.route('/sitemap.xml')
 def sitemap():
+    """SEO를 위한 사이트맵 생성"""
     host = request.host_url.rstrip('/')
-    pages = [
-        {'loc': f"{host}/", 'lastmod': datetime.now().strftime('%Y-%m-%d'), 'priority': '1.0'},
-        {'loc': f"{host}/analysis", 'lastmod': datetime.now().strftime('%Y-%m-%d'), 'priority': '0.8'}
-    ]
-    sitemap_xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
-    sitemap_xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    for page in pages:
-        sitemap_xml += f"  <url>\n    <loc>{page['loc']}</loc>\n    <lastmod>{page['lastmod']}</lastmod>\n    <priority>{page['priority']}</priority>\n  </url>\n"
-    sitemap_xml += '</urlset>'
-    return Response(sitemap_xml, mimetype='application/xml')
+    now_date = datetime.now().strftime('%Y-%m-%d')
+    
+    xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{host}/</loc>
+    <lastmod>{now_date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>{host}/analysis</loc>
+    <lastmod>{now_date}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>"""
+    return Response(xml_content, mimetype='application/xml')
 
+# --- API Route ---
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
