@@ -41,13 +41,8 @@ def get_today_scorers():
 def get_nhl_data():
     now = datetime.now()
     ts, season = int(now.timestamp()), f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
-    
-    # 정규(2) & 플레이오프(3) 데이터 수집
-    s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
-    s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
-    g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
-    g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
-    
+    s_reg, s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
+    g_reg, g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
@@ -56,13 +51,11 @@ def get_nhl_data():
             gp = p.get('gamesPlayed', 0)
             if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
-            ppg = round(pts/gp, 2)
-            ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
+            ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        # 랭킹: 포인트 순 (동점 시 경기수 적은 순)
-        processed.sort(key=lambda x: (-x['pts'], x['gp']))
+        processed.sort(key=lambda x: (-x['pts'], x['gp'])) # [수정] 포인트 순 랭킹
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
@@ -72,21 +65,15 @@ def get_nhl_data():
             gp = p.get('gamesPlayed', 0)
             if gp < min_gp: continue
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
-            sv_val = round((1 - (ga/sa)) * 100, 2)
-            gaa = round(ga/gp, 2)
-            ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
+            sv_val = round((1 - (ga/sa)) * 100, 2); gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, "so": p.get('shutouts', 0), "sa": sa, "ga": ga, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        # 랭킹: 경기수 순 (동점 시 SV% 순)
-        processed.sort(key=lambda x: (-x['gp'], -x['sv']))
+        processed.sort(key=lambda x: (-x['w'], x['gp'])) # [수정] 승리 순 랭킹
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
-    return jsonify({
-        "regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)},
-        "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}
-    })
+    return jsonify({"regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)}, "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}})
 
 @app.route('/')
 def nhl_dashboard_main():
@@ -139,7 +126,7 @@ def nhl_dashboard_main():
         </style>
     </head>
     <body>
-        <div id="loading"><h1>UPDATING IMPACT TIERS...</h1><p>Syncing pro-level analytics.</p></div>
+        <div id="loading"><h1>UPDATING LIVE STATS...</h1><p>Syncing league leaders. Please wait.</p></div>
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -147,7 +134,6 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
-
         <div class="nav-tabs">
             <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
             <button class="tab-btn" id="playoff-mode" onclick="switchMode('playoff')">PLAYOFF</button>
@@ -155,20 +141,15 @@ def nhl_dashboard_main():
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
         </div>
-        
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
-
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
-        
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; let chartInstance = null; let compareBasePlayer = null;
             async function init() {
                 try {
-                    const res = await fetch('/api/data?t=' + Date.now());
-                    rawData = await res.json();
-                    document.getElementById('loading').style.display = 'none';
-                    render();
+                    const res = await fetch('/api/data?t=' + Date.now()); rawData = await res.json();
+                    document.getElementById('loading').style.display = 'none'; render();
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
             function switchMode(mode) {
@@ -184,14 +165,13 @@ def nhl_dashboard_main():
                 updateRankInfo(); render();
             }
             function updateRankInfo() {
-                const criteria = currentType === 'skater' ? 'POINTS' : 'GAMES PLAYED';
+                const criteria = currentType === 'skater' ? 'POINTS' : 'WINS';
                 const gp = currentMode === 'regular' ? (currentType === 'skater' ? '5' : '3') : (currentType === 'skater' ? '2' : '1');
                 document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN ${gp} GP)`;
             }
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
-                const grid = document.getElementById('main-grid');
-                if(!rawData) return;
+                const grid = document.getElementById('main-grid'); if(!rawData) return;
                 const data = rawData[currentMode][currentType + "s"];
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
@@ -200,14 +180,14 @@ def nhl_dashboard_main():
                     const chunk = filtered.slice(idx, idx + 40);
                     const html = chunk.map(p => {
                         const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
-                        const subInfo = p.type === 'skater' ? `${p.abbr} • ${p.pos} • GP ${p.gp}` : `${p.abbr} • G • SV% ${p.sv}`;
+                        const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
                         return `
                         <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
                             <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
                                 <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${subInfo}</small></div>
+                                <div><h3 style="margin:0; font-size:1rem;">${p.name}</h3><small>${subInfo}</small></div>
                                 <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
@@ -233,10 +213,7 @@ def nhl_dashboard_main():
                 document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${compareWith ? 'VS ' + compareWith.name : 'ANALYZING ' + currentMode.toUpperCase()}</div>`;
                 document.getElementById('modal').style.display = 'block'; drawRadar(p, compareWith);
             }
-            function startCompare(id) {
-                const data = rawData[currentMode][currentType + "s"];
-                compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render();
-            }
+            function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render(); }
             function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
