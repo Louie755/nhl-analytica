@@ -42,6 +42,7 @@ def get_nhl_data():
     now = datetime.now()
     ts, season = int(now.timestamp()), f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
     
+    # 정규(2) & 플레이오프(3) 데이터 수집
     s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
     s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
@@ -53,15 +54,15 @@ def get_nhl_data():
         processed = []
         for p in raw:
             gp = p.get('gamesPlayed', 0)
-            if gp < min_gp: continue # 주전 필터
+            if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2)
             ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        # [수정] 스케이터는 IR 높은 순으로 랭크
-        processed.sort(key=lambda x: x['ir'], reverse=True)
+        # 랭킹: 포인트 순 (동점 시 경기수 적은 순)
+        processed.sort(key=lambda x: (-x['pts'], x['gp']))
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
@@ -69,7 +70,7 @@ def get_nhl_data():
         processed = []
         for p in raw:
             gp = p.get('gamesPlayed', 0)
-            if gp < min_gp: continue # 주전 필터
+            if gp < min_gp: continue
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2)
             gaa = round(ga/gp, 2)
@@ -77,8 +78,8 @@ def get_nhl_data():
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, "so": p.get('shutouts', 0), "sa": sa, "ga": ga, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        # [수정] 골리는 SV% 높은 순으로 랭크
-        processed.sort(key=lambda x: x['sv'], reverse=True)
+        # 랭킹: 경기수 순 (동점 시 SV% 순)
+        processed.sort(key=lambda x: (-x['gp'], -x['sv']))
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
@@ -146,6 +147,7 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
+
         <div class="nav-tabs">
             <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
             <button class="tab-btn" id="playoff-mode" onclick="switchMode('playoff')">PLAYOFF</button>
@@ -153,9 +155,12 @@ def nhl_dashboard_main():
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
         </div>
-        <div class="rank-info" id="rank-info-text">RANKING BY IR SCORE (MIN 5 GP)</div>
+        
+        <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
+
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
+        
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; let chartInstance = null; let compareBasePlayer = null;
             async function init() {
@@ -179,7 +184,7 @@ def nhl_dashboard_main():
                 updateRankInfo(); render();
             }
             function updateRankInfo() {
-                const criteria = currentType === 'skater' ? 'IR SCORE' : 'SAVE %';
+                const criteria = currentType === 'skater' ? 'POINTS' : 'GAMES PLAYED';
                 const gp = currentMode === 'regular' ? (currentType === 'skater' ? '5' : '3') : (currentType === 'skater' ? '2' : '1');
                 document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN ${gp} GP)`;
             }
