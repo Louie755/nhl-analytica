@@ -37,22 +37,11 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
-@app.route('/sitemap.xml')
-def sitemap():
-    host = request.host_url.rstrip('/')
-    now_date = datetime.now().strftime('%Y-%m-%d')
-    xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>{host}/</loc><lastmod>{now_date}</lastmod><priority>1.0</priority></url>
-</urlset>"""
-    return Response(xml_content, mimetype='application/xml')
-
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
     ts, season = int(now.timestamp()), f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
     
-    # 정규(2), 플옵(3) 데이터 분리 수집
     s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
     s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
@@ -60,51 +49,42 @@ def get_nhl_data():
     
     today_scorers = get_today_scorers()
 
-    def process_skaters(raw):
+    def process_skaters(raw, min_gp):
         processed = []
         for p in raw:
-            gp = max(1, p.get('gamesPlayed', 0))
-            pts = p.get('points', 0)
-            sh = max(1, p.get('shots', 0))
-            pm = p.get('plusMinus', 0)
+            gp = p.get('gamesPlayed', 0)
+            if gp < min_gp: continue # 주전 필터
+            pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2)
             ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
             processed.append({
-                "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
-                "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), 
-                "gp": gp, "g": p.get('goals', 0), "a": p.get('assists', 0), "pts": pts, 
-                "sh": sh, "pm": pm, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')),
-                "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0),
-                "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
+                "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
+        # [수정] 스케이터는 IR 높은 순으로 랭크
         processed.sort(key=lambda x: x['ir'], reverse=True)
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
-    def process_goalies(raw):
+    def process_goalies(raw, min_gp):
         processed = []
         for p in raw:
-            gp = max(1, p.get('gamesPlayed', 0))
-            ga = p.get('goalsAgainst', 0)
-            sa = max(1, p.get('shotsAgainst', 0))
-            wins = p.get('wins', 0)
+            gp = p.get('gamesPlayed', 0)
+            if gp < min_gp: continue # 주전 필터
+            ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2)
             gaa = round(ga/gp, 2)
             ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             processed.append({
-                "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie",
-                "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": gp, "w": wins, 
-                "so": p.get('shutouts', 0), "ga": ga, "sa": sa, "sv": sv_val, "gaa": gaa, "ir": ir,
-                "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')),
-                "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
+                "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, "so": p.get('shutouts', 0), "sa": sa, "ga": ga, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        processed.sort(key=lambda x: x['ir'], reverse=True)
+        # [수정] 골리는 SV% 높은 순으로 랭크
+        processed.sort(key=lambda x: x['sv'], reverse=True)
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
     return jsonify({
-        "regular": {"skaters": process_skaters(s_reg), "goalies": process_goalies(g_reg)},
-        "playoff": {"skaters": process_skaters(s_ply), "goalies": process_goalies(g_ply)}
+        "regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)},
+        "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}
     })
 
 @app.route('/')
@@ -154,10 +134,11 @@ def nhl_dashboard_main():
             .comp-btn:hover { background: #fff; transform: translateY(-2px); }
             .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
             .divider { width: 1px; height: 15px; background: rgba(255,255,255,0.1); align-self: center; }
+            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding-top: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
         </style>
     </head>
     <body>
-        <div id="loading"><h1>SYNCING LIVE DATA...</h1><p>Regular & Playoff impact tiers loading.</p></div>
+        <div id="loading"><h1>UPDATING IMPACT TIERS...</h1><p>Syncing pro-level analytics.</p></div>
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -165,7 +146,6 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
-
         <div class="nav-tabs">
             <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
             <button class="tab-btn" id="playoff-mode" onclick="switchMode('playoff')">PLAYOFF</button>
@@ -173,58 +153,51 @@ def nhl_dashboard_main():
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
         </div>
-
+        <div class="rank-info" id="rank-info-text">RANKING BY IR SCORE (MIN 5 GP)</div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
-        
         <script>
-            let rawData = null;
-            let currentMode = 'regular';
-            let currentType = 'skater';
-            let chartInstance = null;
-            let compareBasePlayer = null;
-
+            let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; let chartInstance = null; let compareBasePlayer = null;
             async function init() {
                 try {
                     const res = await fetch('/api/data?t=' + Date.now());
                     rawData = await res.json();
                     document.getElementById('loading').style.display = 'none';
                     render();
-                } catch (e) {
-                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>";
-                }
+                } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
-
             function switchMode(mode) {
                 currentMode = mode;
                 document.getElementById('regular-mode').classList.toggle('active', mode === 'regular');
                 document.getElementById('playoff-mode').classList.toggle('active', mode === 'playoff');
-                render();
+                updateRankInfo(); render();
             }
-
             function switchType(type) {
                 currentType = type;
                 document.getElementById('skater-tab').classList.toggle('active', type === 'skater');
                 document.getElementById('goalie-tab').classList.toggle('active', type === 'goalie');
-                render();
+                updateRankInfo(); render();
             }
-
+            function updateRankInfo() {
+                const criteria = currentType === 'skater' ? 'IR SCORE' : 'SAVE %';
+                const gp = currentMode === 'regular' ? (currentType === 'skater' ? '5' : '3') : (currentType === 'skater' ? '2' : '1');
+                document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN ${gp} GP)`;
+            }
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
                 const grid = document.getElementById('main-grid');
+                if(!rawData) return;
                 const data = rawData[currentMode][currentType + "s"];
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
-                
                 let idx = 0;
                 function draw() {
                     const chunk = filtered.slice(idx, idx + 40);
                     const html = chunk.map(p => {
                         const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
-                        const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
-                        const subInfo = p.type === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
+                        const subInfo = p.type === 'skater' ? `${p.abbr} • ${p.pos} • GP ${p.gp}` : `${p.abbr} • G • SV% ${p.sv}`;
                         return `
-                        <div class="card ${isComparing ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
+                        <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
                             <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
@@ -235,60 +208,33 @@ def nhl_dashboard_main():
                         </div>`;
                     }).join('');
                     grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40;
-                    if(idx < filtered.length) setTimeout(draw, 10);
+                    idx += 40; if(idx < filtered.length) setTimeout(draw, 10);
                 }
                 draw();
             }
-
             function handleCardClick(id) {
-                if (compareBasePlayer) {
-                    openModal(id, compareBasePlayer);
-                    compareBasePlayer = null;
-                    render();
-                } else {
-                    openModal(id);
-                }
+                if (compareBasePlayer) { openModal(id, compareBasePlayer); compareBasePlayer = null; render(); }
+                else { openModal(id); }
             }
-
             function openModal(id, compareWith = null) {
                 const data = rawData[currentMode][currentType + "s"];
-                const p = data.find(x => x.id === id);
-                if(!p) return;
-                
+                const p = data.find(x => x.id === id); if(!p) return;
                 let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
                 let irCol = p.ir >= 90 ? "#ff6b6b" : p.ir >= 75 ? "#f1c40f" : p.ir >= 60 ? "#2ecc71" : "#aab4be";
-
-                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ${p.ppg>=0.7?'▲':'▼'}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ${p.ir>=75?'▲':'▼'}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.id%2===0?'#e74c3c':'#f1c40f'}">${p.id%2===0?'Weak':'Strong'} ${p.id%2===0?'▼':'▲'}</span></div>`;
-                let statsHtml = p.type === 'skater' ? 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
-
-                document.getElementById('mInfo').innerHTML = `<div style="font-size:0.7rem; color:var(--accent); font-weight:900; margin-bottom:10px; font-family:'Syncopate';">LEAGUE RANK #${p.rank} (${currentMode.toUpperCase()})</div><img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:15px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${p.type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${p.type==='skater'?p.prob+'%':p.so}</b></div>`;
-                
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ▲</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ▲</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.id%2===0?'#e74c3c':'#f1c40f'}">${p.id%2===0?'Weak':'Strong'} ▲</span></div>`;
+                let statsHtml = p.type === 'skater' ? `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
+                document.getElementById('mInfo').innerHTML = `<div style="font-size:0.7rem; color:var(--accent); font-weight:900; margin-bottom:10px; font-family:'Syncopate';">LEAGUE RANK #${p.rank}</div><img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:15px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${p.type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${p.type==='skater'?p.prob+'%':p.so}</b></div>`;
                 const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}')">COMPARE</button>`;
-                const infoText = compareWith ? `COMPARING: ${p.name} VS ${compareWith.name}` : `SEASON: ${currentMode.toUpperCase()}`;
-                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${infoText}</div>`;
-                document.getElementById('modal').style.display = 'block';
-                drawRadar(p, compareWith);
+                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${compareWith ? 'VS ' + compareWith.name : 'ANALYZING ' + currentMode.toUpperCase()}</div>`;
+                document.getElementById('modal').style.display = 'block'; drawRadar(p, compareWith);
             }
-
             function startCompare(id) {
                 const data = rawData[currentMode][currentType + "s"];
-                compareBasePlayer = data.find(x => x.id === id);
-                document.getElementById('modal').style.display = 'none';
-                render();
+                compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render();
             }
-
-            function closeModal() {
-                document.getElementById('modal').style.display = 'none';
-                compareBasePlayer = null;
-                render();
-            }
-
+            function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
             function drawRadar(p, compareWith = null) {
-                const ctx = document.getElementById('radar').getContext('2d');
-                if(chartInstance) chartInstance.destroy();
+                const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
                 const getPts = (player) => {
                     if(player.type === 'skater') return [Math.min(100, (player.g/player.gp)*200), Math.min(100, (player.a/player.gp)*150), Math.min(100, (player.pts/Math.max(1, player.sh))*500), Math.min(100, (player.sh/player.gp)*30), player.pm >= 0 ? 80 : 40];
                     return [Math.min(100, (player.w/player.gp)*150), Math.min(100, player.sv), Math.min(100, (3.5-player.gaa)*40+20), Math.min(100, player.so*25), Math.min(100, player.gp*2.5)];
@@ -296,12 +242,7 @@ def nhl_dashboard_main():
                 const datasets = [{ label: p.name, data: getPts(p), backgroundColor: 'rgba(56, 189, 248, 0.4)', borderColor: '#38bdf8', borderWidth: 3, pointRadius: 0 }];
                 if (compareWith) datasets.push({ label: compareWith.name, data: getPts(compareWith), backgroundColor: 'transparent', borderColor: '#fff', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 });
                 else datasets.push({ label: 'Avg', data: [50, 50, 50, 50, 50], backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 });
-                
-                chartInstance = new Chart(ctx, {
-                    type: 'radar',
-                    data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets },
-                    options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } }
-                });
+                chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
             }
             init();
         </script>
