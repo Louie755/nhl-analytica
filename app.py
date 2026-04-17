@@ -37,31 +37,19 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
-# --- Sitemap.xml Route ---
+# --- [추가] 사이트맵 자동 생성 ---
 @app.route('/sitemap.xml')
 def sitemap():
-    """SEO를 위한 사이트맵 생성"""
     host = request.host_url.rstrip('/')
     now_date = datetime.now().strftime('%Y-%m-%d')
-    
     xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>{host}/</loc>
-    <lastmod>{now_date}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>{host}/analysis</loc>
-    <lastmod>{now_date}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+  <url><loc>{host}/</loc><lastmod>{now_date}</lastmod><priority>1.0</priority></url>
+  <url><loc>{host}/analysis</loc><lastmod>{now_date}</lastmod><priority>0.8</priority></url>
 </urlset>"""
     return Response(xml_content, mimetype='application/xml')
 
-# --- API Route ---
+# --- [유지] API Route ---
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
@@ -81,6 +69,7 @@ def get_nhl_data():
     skaters = []
     for pid, p in skater_dict.items():
         gp = max(1, p["gp"]); ppg = round(p["pts"]/gp, 2)
+        # [IR 공식 유지]
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
 
@@ -100,6 +89,7 @@ def get_nhl_data():
         
     return jsonify({"skaters": skaters, "goalies": goalies})
 
+# --- [유지] 메인 페이지 ---
 @app.route('/')
 def nhl_dashboard_main():
     return render_template_string("""
@@ -141,20 +131,16 @@ def nhl_dashboard_main():
             .prob-box b { color: #fbbf24; font-size: 2.2rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
+            /* [추가] 링크 스타일 */
+            .p-link { color: var(--accent); text-decoration: none; font-size: 0.7rem; display: block; margin-top: 10px; opacity: 0.6; }
+            .p-link:hover { opacity: 1; }
         </style>
     </head>
     <body>
         <div id="loading"><h1>DEFINING PERFORMANCE GRADES...</h1><p>Syncing Impact Tiers. Please wait.</p></div>
-        
         <header>
             <a href="/" class="logo">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/>
-                    <path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-                    <path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-                    <path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-                </svg>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
                 <span>NHL ANALYTICA</span>
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
@@ -162,7 +148,8 @@ def nhl_dashboard_main():
 
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
         <div class="grid" id="main-grid"></div>
-        <div id="modal" class="modal" onclick="this.style.display='none'"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas></div></div></div>
+        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas></div></div></div>
+
         <script>
             let skaters = []; let goalies = [];
             let currentTab = 'skater'; let chartInstance = null;
@@ -173,7 +160,14 @@ def nhl_dashboard_main():
                     const data = await res.json();
                     skaters = data.skaters; goalies = data.goalies;
                     document.getElementById('loading').style.display = 'none';
+                    
+                    // https://blog.naver.com/PostView.naver?blogId=iotsensor&logNo=222183920706
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const pid = urlParams.get('p');
+                    const ptype = urlParams.get('type');
+                    
                     render();
+                    if(pid && ptype) openModal(pid, ptype);
                 } catch (e) {
                     document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1><p>Restart Server.</p>";
                 }
@@ -217,6 +211,11 @@ def nhl_dashboard_main():
             function openModal(id, type) {
                 const data = type === 'skater' ? skaters : goalies;
                 const p = data.find(x => x.id === id);
+                if(!p) return;
+
+                // https://help.openai.com/ko-kr/articles/7943614-how-to-update-a-shared-link
+                const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?p=' + id + '&type=' + type;
+                window.history.pushState({path:newurl},'',newurl);
                 
                 let irGrade, irCol;
                 if(p.ir >= 90) { irGrade = "Elite"; irCol = "#ff6b6b"; }
@@ -229,7 +228,6 @@ def nhl_dashboard_main():
                 let d_icon = p.id % 2 === 0 ? "▼" : "▲", d_txt = p.id % 2 === 0 ? "Weak" : "Strong", d_col = p.id % 2 === 0 ? "#e74c3c" : "#f1c40f";
 
                 const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${s_col}">${s_txt} ${s_icon}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${d_col}">${d_txt} ${d_icon}</span></div>`;
-                
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
@@ -237,15 +235,23 @@ def nhl_dashboard_main():
                 let probVal = type === 'skater' ? p.prob + '%' : p.so;
                 let probLabel = type === 'skater' ? 'GOAL PROBABILITY' : 'SHUTOUTS';
                 
-                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${probLabel}</small><b>${probVal}</b></div>`;
+                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:10px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${probLabel}</small><b>${probVal}</b></div><a href="${newurl}" class="p-link">PERMALINK: ${newurl}</a>`;
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p);
+            }
+
+            function closeModal() {
+                document.getElementById('modal').style.display = 'none';
+                const cleanurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.pushState({path:cleanurl},'',cleanurl);
             }
 
             function drawRadar(p) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chartInstance) chartInstance.destroy();
                 let chartData = [];
+                let avgData = [50, 50, 50, 50, 50]; // 리그 평균 가이드선
+                
                 if(p.type === 'skater') {
                     let scoring = Math.min(100, (p.g / (p.gp || 1)) * 200), playmaking = Math.min(100, (p.a / (p.gp || 1)) * 150), efficiency = Math.min(100, (p.pts / Math.max(1, p.sh)) * 500), shotVol = Math.min(100, (p.sh / (p.gp || 1)) * 30), defense = p.pm >= 0 ? 80 : Math.max(20, 80 + p.pm * 5);
                     chartData = [scoring, playmaking, efficiency, shotVol, defense];
@@ -255,8 +261,14 @@ def nhl_dashboard_main():
                 }
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
-                    data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: [{ data: chartData, backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 }] },
-                    options: { scales: { r: { grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 12 } } } }, plugins: { legend: { display: false } } }
+                    data: { 
+                        labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], 
+                        datasets: [
+                            { label: 'Player', data: chartData, backgroundColor: 'rgba(56, 189, 248, 0.3)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 2 },
+                            { label: 'League Avg', data: avgData, backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 }
+                        ] 
+                    },
+                    options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } }
                 });
             }
             init();
