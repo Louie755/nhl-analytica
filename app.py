@@ -6,7 +6,6 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [유지] 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -37,7 +36,6 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
-# --- [추가] 사이트맵 자동 생성 ---
 @app.route('/sitemap.xml')
 def sitemap():
     host = request.host_url.rstrip('/')
@@ -49,7 +47,6 @@ def sitemap():
 </urlset>"""
     return Response(xml_content, mimetype='application/xml')
 
-# --- [유지] API Route ---
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
@@ -69,7 +66,6 @@ def get_nhl_data():
     skaters = []
     for pid, p in skater_dict.items():
         gp = max(1, p["gp"]); ppg = round(p["pts"]/gp, 2)
-        # [IR 공식 유지]
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
 
@@ -89,7 +85,6 @@ def get_nhl_data():
         
     return jsonify({"skaters": skaters, "goalies": goalies})
 
-# --- [유지] 메인 페이지 ---
 @app.route('/')
 def nhl_dashboard_main():
     return render_template_string("""
@@ -117,7 +112,7 @@ def nhl_dashboard_main():
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
-            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; }
+            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
             .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 25px 0; }
             .stat-box { background: #16253d; padding: 15px; border-radius: 12px; text-align: left; }
             .stat-box small { color: #637381; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
@@ -131,9 +126,12 @@ def nhl_dashboard_main():
             .prob-box b { color: #fbbf24; font-size: 2.2rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
-            /* [추가] 링크 스타일 */
-            .p-link { color: var(--accent); text-decoration: none; font-size: 0.7rem; display: block; margin-top: 10px; opacity: 0.6; }
-            .p-link:hover { opacity: 1; }
+            /* [추가] Comparison Mode UI */
+            .comp-btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; margin-top: 15px; width: 100%; transition: 0.3s; }
+            .comp-btn:hover { background: #fff; }
+            .comp-active { border: 2px solid #fff !important; animation: pulse 1.5s infinite; }
+            @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+            .comp-hint { position: absolute; bottom: 20px; color: #aab4be; font-size: 0.7rem; font-weight: bold; }
         </style>
     </head>
     <body>
@@ -148,11 +146,12 @@ def nhl_dashboard_main():
 
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
         <div class="grid" id="main-grid"></div>
-        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas></div></div></div>
+        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas><div class="comp-hint" id="compHint"></div></div></div></div>
 
         <script>
             let skaters = []; let goalies = [];
             let currentTab = 'skater'; let chartInstance = null;
+            let compareBasePlayer = null; // 비교 기준 선수 저장
 
             async function init() {
                 try {
@@ -160,16 +159,9 @@ def nhl_dashboard_main():
                     const data = await res.json();
                     skaters = data.skaters; goalies = data.goalies;
                     document.getElementById('loading').style.display = 'none';
-                    
-                    // https://blog.naver.com/PostView.naver?blogId=iotsensor&logNo=222183920706
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const pid = urlParams.get('p');
-                    const ptype = urlParams.get('type');
-                    
                     render();
-                    if(pid && ptype) openModal(pid, ptype);
                 } catch (e) {
-                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1><p>Restart Server.</p>";
+                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>";
                 }
             }
 
@@ -186,88 +178,118 @@ def nhl_dashboard_main():
                 const data = currentTab === 'skater' ? skaters : goalies;
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
-                let idx = 0;
-                function draw() {
-                    const chunk = filtered.slice(idx, idx + 40);
-                    const html = chunk.map(p => {
-                        const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
-                        const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
-                        return `
-                        <div class="card" onclick="openModal('${p.id}', '${p.type}')" style="--t-color:${p.col}">
+                
+                filtered.slice(0, 100).forEach(p => {
+                    const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
+                    const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
+                    grid.insertAdjacentHTML('beforeend', `
+                        <div class="card ${isComparing ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}', '${p.type}')" style="--t-color:${p.col}">
                             <div style="display:flex; align-items:center; gap:15px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${subInfo}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos}</small></div>
+                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b></div>
                             </div>
-                        </div>`;
-                    }).join('');
-                    grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40;
-                    if(idx < filtered.length) setTimeout(draw, 10);
-                }
-                draw();
+                        </div>`);
+                });
             }
 
-            function openModal(id, type) {
+            function handleCardClick(id, type) {
+                if (compareBasePlayer) {
+                    // 비교 모드일 때 다른 선수를 클릭하면 비교창 오픈
+                    openModal(id, type, compareBasePlayer);
+                    compareBasePlayer = null; // 모드 해제
+                    render();
+                } else {
+                    // 일반 클릭
+                    openModal(id, type);
+                }
+            }
+
+            function openModal(id, type, compareWith = null) {
                 const data = type === 'skater' ? skaters : goalies;
                 const p = data.find(x => x.id === id);
                 if(!p) return;
 
-                // https://help.openai.com/ko-kr/articles/7943614-how-to-update-a-shared-link
-                const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?p=' + id + '&type=' + type;
-                window.history.pushState({path:newurl},'',newurl);
-                
-                let irGrade, irCol;
-                if(p.ir >= 90) { irGrade = "Elite"; irCol = "#ff6b6b"; }
-                else if(p.ir >= 75) { irGrade = "Above Average"; irCol = "#f1c40f"; }
-                else if(p.ir >= 60) { irGrade = "Average"; irCol = "#2ecc71"; }
-                else { irGrade = "Below Average"; irCol = "#aab4be"; }
-
-                let f_icon = p.ppg >= 0.7 ? "▲" : "▼", f_txt = p.ppg >= 0.7 ? "Hot" : "Cold", f_col = p.ppg >= 0.7 ? "#ff6b6b" : "#38bdf8";
-                let s_icon = p.ir >= 75 ? "▲" : "▼", s_txt = irGrade, s_col = irCol;
-                let d_icon = p.id % 2 === 0 ? "▼" : "▲", d_txt = p.id % 2 === 0 ? "Weak" : "Strong", d_col = p.id % 2 === 0 ? "#e74c3c" : "#f1c40f";
-
-                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${s_col}">${s_txt} ${s_icon}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${d_col}">${d_txt} ${d_icon}</span></div>`;
                 let statsHtml = type === 'skater' ? 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
+                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div>` : 
+                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div>`;
 
-                let probVal = type === 'skater' ? p.prob + '%' : p.so;
-                let probLabel = type === 'skater' ? 'GOAL PROBABILITY' : 'SHUTOUTS';
+                const compareBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE WITH OTHERS</button>`;
+                const compareTitle = compareWith ? `<div style="font-size:0.8rem; color:#aaa; margin-top:10px;">VS ${compareWith.name}</div>` : '';
+
+                document.getElementById('mInfo').innerHTML = `
+                    <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};">
+                    <h2 style="font-family:'Syncopate'; margin:20px 0 5px;">${p.name.toUpperCase()}</h2>
+                    ${compareTitle}
+                    <div style="color:${p.col}; font-weight:800; margin-bottom:10px;">${p.team}</div>
+                    <div class="stat-grid">${statsHtml}</div>
+                    ${compareBtnHtml}
+                `;
                 
-                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:10px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${probLabel}</small><b>${probVal}</b></div><a href="${newurl}" class="p-link">PERMALINK: ${newurl}</a>`;
+                document.getElementById('compHint').innerText = compareWith ? `Comparing: ${p.name} (Blue) vs ${compareWith.name} (White)` : "";
                 document.getElementById('modal').style.display = 'block';
-                drawRadar(p);
+                drawRadar(p, compareWith);
+            }
+
+            function startCompare(id, type) {
+                const data = type === 'skater' ? skaters : goalies;
+                compareBasePlayer = data.find(x => x.id === id);
+                document.getElementById('modal').style.display = 'none';
+                render();
+                alert(`${compareBasePlayer.name} selected. Now select another player to compare!`);
             }
 
             function closeModal() {
                 document.getElementById('modal').style.display = 'none';
-                const cleanurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                window.history.pushState({path:cleanurl},'',cleanurl);
+                compareBasePlayer = null;
+                render();
             }
 
-            function drawRadar(p) {
+            function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chartInstance) chartInstance.destroy();
-                let chartData = [];
-                let avgData = [50, 50, 50, 50, 50]; // 리그 평균 가이드선
                 
-                if(p.type === 'skater') {
-                    let scoring = Math.min(100, (p.g / (p.gp || 1)) * 200), playmaking = Math.min(100, (p.a / (p.gp || 1)) * 150), efficiency = Math.min(100, (p.pts / Math.max(1, p.sh)) * 500), shotVol = Math.min(100, (p.sh / (p.gp || 1)) * 30), defense = p.pm >= 0 ? 80 : Math.max(20, 80 + p.pm * 5);
-                    chartData = [scoring, playmaking, efficiency, shotVol, defense];
+                const getPoints = (player) => {
+                    if(player.type === 'skater') {
+                        return [Math.min(100, (player.g/player.gp)*200), Math.min(100, (player.a/player.gp)*150), Math.min(100, (player.pts/Math.max(1, player.sh))*500), Math.min(100, (player.sh/player.gp)*30), player.pm >= 0 ? 80 : 40];
+                    }
+                    return [Math.min(100, (player.w/player.gp)*150), Math.min(100, player.sv), Math.min(100, (3.5-player.gaa)*40+20), Math.min(100, player.so*25), Math.min(100, player.gp*2.5)];
+                };
+
+                const datasets = [{
+                    label: p.name,
+                    data: getPoints(p),
+                    backgroundColor: 'rgba(56, 189, 248, 0.4)',
+                    borderColor: '#38bdf8',
+                    borderWidth: 3,
+                    pointRadius: 0
+                }];
+
+                if (compareWith) {
+                    datasets.push({
+                        label: compareWith.name,
+                        data: getPoints(compareWith),
+                        backgroundColor: 'transparent',
+                        borderColor: '#fff',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    });
                 } else {
-                    let wins = Math.min(100, (p.w / Math.max(1, p.gp)) * 150), saves = Math.min(100, (p.sv / 100) * 105), gaa_score = Math.min(100, (3.5 - p.gaa) * 40 + 20), shutouts = Math.min(100, p.so * 25), games = Math.min(100, p.gp * 2.5);
-                    chartData = [wins, saves, gaa_score, shutouts, games];
+                    datasets.push({
+                        label: 'League Avg',
+                        data: [50, 50, 50, 50, 50],
+                        backgroundColor: 'transparent',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    });
                 }
+
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
-                    data: { 
-                        labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], 
-                        datasets: [
-                            { label: 'Player', data: chartData, backgroundColor: 'rgba(56, 189, 248, 0.3)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 2 },
-                            { label: 'League Avg', data: avgData, backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 }
-                        ] 
-                    },
+                    data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets },
                     options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } }
                 });
             }
