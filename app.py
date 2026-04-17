@@ -107,25 +107,23 @@ def nhl_dashboard_main():
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
-            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
-            .m-right { padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-            .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 20px 0; }
+            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
+            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
+            .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 20px 0; }
             .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
             .stat-box small { color: #637381; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; }
-            .stat-box b { font-size: 1.1rem; display: block; margin-top: 2px; }
-            .kf-container { background: #16253d; border: 1.5px solid #1f3a52; border-radius: 12px; padding: 15px; text-align: left; }
-            .kf-title { color: var(--accent); font-size: 0.75rem; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; }
-            .kf-item { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
+            .stat-box b { font-size: 1.1rem; display: block; margin-top: 4px; }
+            .kf-container { background: #16253d; border: 1.5px solid #1f3a52; border-radius: 12px; padding: 18px; text-align: left; }
+            .kf-title { color: var(--accent); font-size: 0.75rem; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; }
+            .kf-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
             .kf-label { color: #aab4be; }
             .kf-val { font-weight: 800; }
             .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: center; }
-            .prob-box b { color: #fbbf24; font-size: 1.8rem; display: block; }
+            .prob-box b { color: #fbbf24; font-size: 2rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
-            
-            /* [버튼 위치 업그레이드] */
-            .comp-btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; margin-bottom: 20px; width: 100%; transition: 0.3s; z-index: 10; }
-            .comp-btn:hover { background: #fff; transform: scale(1.02); }
+            .comp-btn { position: absolute; top: 40px; right: 40px; background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; transition: 0.3s; z-index: 100;}
+            .comp-btn:hover { background: #fff; transform: translateY(-2px); }
             .comp-active { border: 2px solid #fff !important; animation: pulse 1.5s infinite; }
             @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
         </style>
@@ -142,7 +140,6 @@ def nhl_dashboard_main():
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
-        
         <script>
             let skaters = []; let goalies = [];
             let currentTab = 'skater'; let chartInstance = null;
@@ -173,18 +170,27 @@ def nhl_dashboard_main():
                 const data = currentTab === 'skater' ? skaters : goalies;
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
-                filtered.slice(0, 100).forEach(p => {
-                    const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
-                    const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
-                    grid.insertAdjacentHTML('beforeend', `
+                
+                let idx = 0;
+                function draw() {
+                    const chunk = filtered.slice(idx, idx + 40);
+                    const html = chunk.map(p => {
+                        const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
+                        const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
+                        return `
                         <div class="card ${isComparing ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}', '${p.type}')" style="--t-color:${p.col}">
                             <div style="display:flex; align-items:center; gap:15px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b></div>
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos} • PPG ${p.ppg}</small></div>
+                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
                             </div>
-                        </div>`);
-                });
+                        </div>`;
+                    }).join('');
+                    grid.insertAdjacentHTML('beforeend', html);
+                    idx += 40;
+                    if(idx < filtered.length) setTimeout(draw, 10);
+                }
+                draw();
             }
 
             function handleCardClick(id, type) {
@@ -208,28 +214,15 @@ def nhl_dashboard_main():
                 else if(p.ir >= 60) { irGrade = "Average"; irCol = "#2ecc71"; }
                 else { irGrade = "Below Average"; irCol = "#aab4be"; }
 
-                let f_icon = p.ppg >= 0.7 ? "▲" : "▼", f_txt = p.ppg >= 0.7 ? "Hot" : "Cold", f_col = p.ppg >= 0.7 ? "#ff6b6b" : "#38bdf8";
-                let s_icon = p.ir >= 75 ? "▲" : "▼", s_txt = irGrade, s_col = irCol;
-                let d_icon = p.id % 2 === 0 ? "▼" : "▲", d_txt = p.id % 2 === 0 ? "Weak" : "Strong", d_col = p.id % 2 === 0 ? "#e74c3c" : "#f1c40f";
-
-                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${s_col}">${s_txt} ${s_icon}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${d_col}">${d_txt} ${d_icon}</span></div>`;
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ${p.ppg>=0.7?'▲':'▼'}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ${p.ir>=75?'▲':'▼'}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.id%2===0?'#e74c3c':'#f1c40f'}">${p.id%2===0?'Weak':'Strong'} ${p.id%2===0?'▼':'▲'}</span></div>`;
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
 
-                document.getElementById('mInfo').innerHTML = `
-                    <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};">
-                    <h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2>
-                    <div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div>
-                    <div class="stat-grid">${statsHtml}</div>
-                    <div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div>
-                    <div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>
-                `;
+                document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
                 
-                // [그래프 영역 상단에 버튼 배치]
-                const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE WITH OTHERS</button>`;
+                const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE</button>`;
                 document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas>`;
-
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p, compareWith);
             }
@@ -254,9 +247,7 @@ def nhl_dashboard_main():
                     if(player.type === 'skater') return [Math.min(100, (player.g/player.gp)*200), Math.min(100, (player.a/player.gp)*150), Math.min(100, (player.pts/Math.max(1, player.sh))*500), Math.min(100, (player.sh/player.gp)*30), player.pm >= 0 ? 80 : 40];
                     return [Math.min(100, (player.w/player.gp)*150), Math.min(100, player.sv), Math.min(100, (3.5-player.gaa)*40+20), Math.min(100, player.so*25), Math.min(100, player.gp*2.5)];
                 };
-                const datasets = [{
-                    label: p.name, data: getPts(p), backgroundColor: 'rgba(56, 189, 248, 0.4)', borderColor: '#38bdf8', borderWidth: 3, pointRadius: 0
-                }];
+                const datasets = [{ label: p.name, data: getPts(p), backgroundColor: 'rgba(56, 189, 248, 0.4)', borderColor: '#38bdf8', borderWidth: 3, pointRadius: 0 }];
                 if (compareWith) {
                     datasets.push({ label: compareWith.name, data: getPts(compareWith), backgroundColor: 'transparent', borderColor: '#fff', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 });
                 } else {
