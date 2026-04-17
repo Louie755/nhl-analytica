@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# 팀 데이터 및 컬러 설정
+# [유지] 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -53,15 +53,16 @@ def get_nhl_data():
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
             
-            # [해결됨] API 키값 teamAbbrevs 대응 (트레이드 선수 포함)
+            # [수정] 트레이드 선수 처리: 쉼표로 구분된 팀 목록 중 가장 마지막 팀(현재 팀)만 추출
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
-            main_abbr = str(raw_abbr).split(',')[0].strip().upper() if raw_abbr else ""
+            teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
+            main_abbr = teams_list[-1] if teams_list else ""
 
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
-                "abbr": str(raw_abbr).upper(), "main_abbr": main_abbr, "pos": p.get('positionCode'), 
-                "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, "g": p.get('goals', 0), "a": p.get('assists', 0), 
-                "sh": sh, "pm": pm, "team": TEAM_MAP.get(main_abbr, raw_abbr), 
+                "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, 
+                "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, 
+                "team": TEAM_MAP.get(main_abbr, main_abbr), 
                 "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), 
                 "trending": str(p.get('playerId')) in today_scorers, 
                 "col": TEAM_COLORS.get(main_abbr, "#38bdf8")
@@ -79,15 +80,16 @@ def get_nhl_data():
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             
-            # [해결됨] API 키값 teamAbbrevs 대응
+            # [수정] 골리 트레이드 처리 역시 동일하게 마지막 소속팀 기준 적용
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
-            main_abbr = str(raw_abbr).split(',')[0].strip().upper() if raw_abbr else ""
+            teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
+            main_abbr = teams_list[-1] if teams_list else ""
 
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", 
-                "abbr": str(raw_abbr).upper(), "main_abbr": main_abbr, "pos": "G", 
-                "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, "so": p.get('shutouts', 0), 
-                "sa": sa, "ga": ga, "team": TEAM_MAP.get(main_abbr, raw_abbr), 
+                "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, 
+                "so": p.get('shutouts', 0), "sa": sa, "ga": ga, 
+                "team": TEAM_MAP.get(main_abbr, main_abbr), 
                 "trending": str(p.get('playerId')) in today_scorers, 
                 "col": TEAM_COLORS.get(main_abbr, "#38bdf8")
             })
@@ -181,7 +183,8 @@ def nhl_dashboard_main():
                     const res = await fetch('/api/data?t=' + Date.now()); 
                     rawData = await res.json();
                     document.getElementById('loading').style.display = 'none';
-                    buildTeamBar(); render();
+                    buildTeamBar(); 
+                    render();
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
 
@@ -229,10 +232,10 @@ def nhl_dashboard_main():
                 const grid = document.getElementById('main-grid'); if(!rawData) return;
                 let data = rawData[currentMode][currentType + "s"];
                 
-                // [해결됨] 팀 필터링 로직: abbr 값이 드디어 채워져서 정상 필터링됨!
+                // [수정] 정확한 현재 소속팀 매칭으로 회귀
                 if (currentTeam) {
-                    const target = currentTeam.toUpperCase();
-                    data = data.filter(p => (p.abbr || "").toUpperCase().includes(target));
+                    const target = currentTeam.trim().toUpperCase();
+                    data = data.filter(p => (p.abbr || "").trim().toUpperCase() === target);
                 }
                 
                 grid.innerHTML = '';
@@ -249,7 +252,7 @@ def nhl_dashboard_main():
                             <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.main_abbr}_light.svg'">
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
                                 <div><h3 style="margin:0; font-size:1rem;">${p.name}</h3><small>${subInfo}</small></div>
                                 <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
