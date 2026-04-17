@@ -55,7 +55,6 @@ def get_nhl_data():
     s_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points")
     g_raw = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins")
     today_scorers = get_today_scorers()
-    
     skater_dict = {}
     for p in s_raw:
         pid = str(p.get('playerId'))
@@ -63,14 +62,11 @@ def get_nhl_data():
             skater_dict[pid] = {"id": pid, "name": p.get('skaterFullName'), "type": "skater", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), "gp": 0, "g": 0, "a": 0, "pts": 0, "sh": 0, "pm": 0}
         t = skater_dict[pid]
         t["gp"] += p.get('gamesPlayed', 0); t["g"] += p.get('goals', 0); t["a"] += p.get('assists', 0); t["pts"] += p.get('points', 0); t["sh"] += p.get('shots', 0); t["pm"] += p.get('plusMinus', 0)
-
     skaters = []
     for pid, p in skater_dict.items():
         gp = max(1, p["gp"]); ppg = round(p["pts"]/gp, 2)
-        # [유지] IR 공식
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
-
     goalie_dict = {}
     for p in g_raw:
         pid = str(p.get('playerId'))
@@ -78,16 +74,13 @@ def get_nhl_data():
             goalie_dict[pid] = {"id": pid, "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": 0, "w": 0, "so": 0, "ga": 0, "sa": 0}
         t = goalie_dict[pid]
         t["gp"] += p.get('gamesPlayed', 0); t["w"] += p.get('wins', 0); t["so"] += p.get('shutouts', 0); t["ga"] += p.get('goalsAgainst', 0); t["sa"] += p.get('shotsAgainst', 0)
-
     goalies = []
     for pid, p in goalie_dict.items():
         gp = max(1, p["gp"]); sv_val = round((1 - (p["ga"]/max(1, p["sa"]))) * 100, 1) if p["sa"] > 0 else 0.0
         gaa = round(p["ga"]/gp, 2); ir = min(99.9, round((p["w"]/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
         goalies.append({**p, "sv": sv_val, "gaa": gaa, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
-        
     return jsonify({"skaters": skaters, "goalies": goalies})
 
-# --- [유지] 메인 페이지 (디자인 수정 절대 없음) ---
 @app.route('/')
 def nhl_dashboard_main():
     return render_template_string("""
@@ -115,31 +108,30 @@ def nhl_dashboard_main():
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
-            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; }
-            .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 25px 0; }
-            .stat-box { background: #16253d; padding: 15px; border-radius: 12px; text-align: left; }
-            .stat-box small { color: #637381; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
-            .stat-box b { font-size: 1.3rem; display: block; margin-top: 4px; }
-            .kf-container { background: #16253d; border: 1.5px solid #1f3a52; border-radius: 12px; padding: 20px; text-align: left; }
-            .kf-title { color: var(--accent); font-size: 0.8rem; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; }
-            .kf-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+            .m-right { padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+            .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 20px 0; }
+            .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
+            .stat-box small { color: #637381; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; }
+            .stat-box b { font-size: 1.1rem; display: block; margin-top: 2px; }
+            .kf-container { background: #16253d; border: 1.5px solid #1f3a52; border-radius: 12px; padding: 15px; text-align: left; }
+            .kf-title { color: var(--accent); font-size: 0.75rem; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; }
+            .kf-item { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
             .kf-label { color: #aab4be; }
             .kf-val { font-weight: 800; }
-            .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 18px; margin-top: 15px; text-align: center; }
-            .prob-box b { color: #fbbf24; font-size: 2.2rem; display: block; }
+            .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: center; }
+            .prob-box b { color: #fbbf24; font-size: 1.8rem; display: block; }
             .trend-up { color: #2ecc71; font-size: 0.8rem; margin-left: 4px; vertical-align: middle; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
             
-            /* [추가] 비교 버튼 디자인 (기존 포맷을 해치지 않게 조심스럽게 추가) */
-            .comp-btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; margin-top: 15px; width: 100%; transition: 0.3s; }
-            .comp-btn:hover { background: #fff; }
+            /* [버튼 위치 업그레이드] */
+            .comp-btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; margin-bottom: 20px; width: 100%; transition: 0.3s; z-index: 10; }
+            .comp-btn:hover { background: #fff; transform: scale(1.02); }
             .comp-active { border: 2px solid #fff !important; animation: pulse 1.5s infinite; }
             @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
         </style>
     </head>
     <body>
         <div id="loading"><h1>DEFINING PERFORMANCE GRADES...</h1><p>Syncing Impact Tiers. Please wait.</p></div>
-        
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -147,15 +139,14 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
-
         <div class="nav-tabs"><button class="tab-btn active" id="skater-tab" onclick="switchTab('skater')">SKATERS</button><button class="tab-btn" id="goalie-tab" onclick="switchTab('goalie')">GOALIES</button></div>
         <div class="grid" id="main-grid"></div>
-        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right"><canvas id="radar"></canvas></div></div></div>
+        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
         
         <script>
             let skaters = []; let goalies = [];
             let currentTab = 'skater'; let chartInstance = null;
-            let compareBasePlayer = null; // 비교 기준 선수 저장
+            let compareBasePlayer = null;
 
             async function init() {
                 try {
@@ -165,7 +156,7 @@ def nhl_dashboard_main():
                     document.getElementById('loading').style.display = 'none';
                     render();
                 } catch (e) {
-                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1><p>Restart Server.</p>";
+                    document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>";
                 }
             }
 
@@ -182,36 +173,26 @@ def nhl_dashboard_main():
                 const data = currentTab === 'skater' ? skaters : goalies;
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
-                let idx = 0;
-                function draw() {
-                    const chunk = filtered.slice(idx, idx + 40);
-                    const html = chunk.map(p => {
-                        const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
-                        const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
-                        return `
+                filtered.slice(0, 100).forEach(p => {
+                    const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
+                    const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
+                    grid.insertAdjacentHTML('beforeend', `
                         <div class="card ${isComparing ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}', '${p.type}')" style="--t-color:${p.col}">
                             <div style="display:flex; align-items:center; gap:15px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos} • PPG ${p.ppg}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos}</small></div>
+                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b></div>
                             </div>
-                        </div>`;
-                    }).join('');
-                    grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40;
-                    if(idx < filtered.length) setTimeout(draw, 10);
-                }
-                draw();
+                        </div>`);
+                });
             }
 
             function handleCardClick(id, type) {
                 if (compareBasePlayer) {
-                    // 비교 모드일 때 다른 선수를 클릭하면 비교창 오픈
                     openModal(id, type, compareBasePlayer);
-                    compareBasePlayer = null; // 모드 해제
-                    render(); // 깜빡임 제거를 위해 리렌더링
+                    compareBasePlayer = null;
+                    render();
                 } else {
-                    // 일반 클릭
                     openModal(id, type);
                 }
             }
@@ -232,25 +213,23 @@ def nhl_dashboard_main():
                 let d_icon = p.id % 2 === 0 ? "▼" : "▲", d_txt = p.id % 2 === 0 ? "Weak" : "Strong", d_col = p.id % 2 === 0 ? "#e74c3c" : "#f1c40f";
 
                 const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${f_col}">${f_txt} ${f_icon}</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${s_col}">${s_txt} ${s_icon}</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${d_col}">${d_txt} ${d_icon}</span></div>`;
-                
                 let statsHtml = type === 'skater' ? 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : 
                     `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
 
-                let probVal = type === 'skater' ? p.prob + '%' : p.so;
-                let probLabel = type === 'skater' ? 'GOAL PROBABILITY' : 'SHUTOUTS';
-
-                // [유지] 기존 포맷 + 비교 버튼만 추가
                 document.getElementById('mInfo').innerHTML = `
                     <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};">
                     <h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2>
                     <div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div>
                     <div class="stat-grid">${statsHtml}</div>
                     <div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div>
-                    <div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${probLabel}</small><b>${probVal}</b></div>
-                    <button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE WITH OTHERS</button>
+                    <div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>
                 `;
                 
+                // [그래프 영역 상단에 버튼 배치]
+                const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE WITH OTHERS</button>`;
+                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas>`;
+
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p, compareWith);
             }
@@ -258,61 +237,31 @@ def nhl_dashboard_main():
             function startCompare(id, type) {
                 const data = type === 'skater' ? skaters : goalies;
                 compareBasePlayer = data.find(x => x.id === id);
-                document.getElementById('modal').style.display = 'none'; // 모달 닫기
-                render(); // 리렌더링해서 깜빡임 효과 적용
-                alert(`${compareBasePlayer.name} selected. Now select another player to compare!`);
+                document.getElementById('modal').style.display = 'none';
+                render();
             }
 
             function closeModal() {
                 document.getElementById('modal').style.display = 'none';
-                compareBasePlayer = null; // 모드 초기화
+                compareBasePlayer = null;
                 render();
             }
 
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chartInstance) chartInstance.destroy();
-                
-                const getPoints = (player) => {
-                    if(player.type === 'skater') {
-                        return [Math.min(100, (player.g / player.gp) * 200), Math.min(100, (player.a / player.gp) * 150), Math.min(100, (player.pts / Math.max(1, player.sh)) * 500), Math.min(100, (player.sh / player.gp) * 30), player.pm >= 0 ? 80 : Math.max(20, 80 + player.pm * 5)];
-                    }
-                    return [Math.min(100, (player.w / player.gp) * 150), Math.min(100, player.sv), Math.min(100, (3.5 - player.gaa) * 40 + 20), Math.min(100, player.so * 25), Math.min(100, player.gp * 2.5)];
+                const getPts = (player) => {
+                    if(player.type === 'skater') return [Math.min(100, (player.g/player.gp)*200), Math.min(100, (player.a/player.gp)*150), Math.min(100, (player.pts/Math.max(1, player.sh))*500), Math.min(100, (player.sh/player.gp)*30), player.pm >= 0 ? 80 : 40];
+                    return [Math.min(100, (player.w/player.gp)*150), Math.min(100, player.sv), Math.min(100, (3.5-player.gaa)*40+20), Math.min(100, player.so*25), Math.min(100, player.gp*2.5)];
                 };
-
                 const datasets = [{
-                    label: p.name,
-                    data: getPoints(p),
-                    backgroundColor: 'rgba(56, 189, 248, 0.4)', // 색상 및 포맷 유지
-                    borderColor: '#38bdf8',
-                    borderWidth: 3,
-                    pointRadius: 0
+                    label: p.name, data: getPts(p), backgroundColor: 'rgba(56, 189, 248, 0.4)', borderColor: '#38bdf8', borderWidth: 3, pointRadius: 0
                 }];
-
-                // 비교 대상이 있을 경우 데이터셋 추가
                 if (compareWith) {
-                    datasets.push({
-                        label: compareWith.name,
-                        data: getPoints(compareWith),
-                        backgroundColor: 'transparent',
-                        borderColor: '#fff', // 비교 대상은 흰색
-                        borderWidth: 2,
-                        borderDash: [5, 5], // 점선 효과
-                        pointRadius: 0
-                    });
+                    datasets.push({ label: compareWith.name, data: getPts(compareWith), backgroundColor: 'transparent', borderColor: '#fff', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 });
                 } else {
-                    // 평소에는 리그 평균 가이드선 표시 (기존 포맷 유지)
-                    datasets.push({
-                        label: 'League Avg',
-                        data: [50, 50, 50, 50, 50],
-                        backgroundColor: 'transparent',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1,
-                        borderDash: [5, 5],
-                        pointRadius: 0
-                    });
+                    datasets.push({ label: 'Avg', data: [50, 50, 50, 50, 50], backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 });
                 }
-
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
                     data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets },
@@ -324,10 +273,6 @@ def nhl_dashboard_main():
     </body>
     </html>
     """)
-
-@app.route('/analysis')
-def nhl_analysis_report():
-    return render_template_string("<h1>NHL Analytics Report</h1><p>Detailed data processing finalized.</p>")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
