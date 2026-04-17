@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [유지] 팀 데이터 및 컬러 설정
+# 팀 데이터 (로고 및 이름 매핑)
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -55,7 +55,7 @@ def get_nhl_data():
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        processed.sort(key=lambda x: (-x['pts'], x['gp'])) # [수정] 포인트 순 랭킹
+        processed.sort(key=lambda x: (-x['pts'], x['gp']))
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
@@ -65,11 +65,12 @@ def get_nhl_data():
             gp = p.get('gamesPlayed', 0)
             if gp < min_gp: continue
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
-            sv_val = round((1 - (ga/sa)) * 100, 2); gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
+            sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
+            gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, "so": p.get('shutouts', 0), "sa": sa, "ga": ga, "team": TEAM_MAP.get(str(p.get('teamAbbrev', '')).upper(), p.get('teamAbbrev', '')), "trending": str(p.get('playerId')) in today_scorers, "col": TEAM_COLORS.get(str(p.get('teamAbbrev', '')).upper(), "#38bdf8")
             })
-        processed.sort(key=lambda x: (-x['w'], x['gp'])) # [수정] 승리 순 랭킹
+        processed.sort(key=lambda x: (-x['w'], x['gp']))
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
@@ -92,16 +93,26 @@ def nhl_dashboard_main():
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
             .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; }
-            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; background: rgba(255,255,255,0.02); }
-            .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; padding-bottom: 8px; transition: 0.3s; }
+            
+            /* [팀 필터 바 스타일] */
+            .team-bar { display: flex; gap: 15px; padding: 15px 5%; overflow-x: auto; background: rgba(255,255,255,0.01); border-bottom: 1px solid rgba(255,255,255,0.05); scrollbar-width: none; }
+            .team-bar::-webkit-scrollbar { display: none; }
+            .team-logo-btn { width: 45px; height: 45px; cursor: pointer; transition: 0.3s; opacity: 0.5; filter: grayscale(1); flex-shrink: 0; }
+            .team-logo-btn:hover, .team-logo-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
+            
+            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; }
+            .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; transition: 0.3s; padding-bottom: 5px; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+            
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; }
             .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; }
             .card:hover { transform: translateY(-5px); border-color: var(--accent); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
+            
             .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
             .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+            
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
@@ -122,11 +133,11 @@ def nhl_dashboard_main():
             .comp-btn:hover { background: #fff; transform: translateY(-2px); }
             .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
             .divider { width: 1px; height: 15px; background: rgba(255,255,255,0.1); align-self: center; }
-            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding-top: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
         </style>
     </head>
     <body>
-        <div id="loading"><h1>UPDATING LIVE STATS...</h1><p>Syncing league leaders. Please wait.</p></div>
+        <div id="loading"><h1>SYNCING LEAGUE DATA...</h1><p>Initializing Team Rosters.</p></div>
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -134,6 +145,9 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
+
+        <div class="team-bar" id="team-bar"></div>
+
         <div class="nav-tabs">
             <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
             <button class="tab-btn" id="playoff-mode" onclick="switchMode('playoff')">PLAYOFF</button>
@@ -141,45 +155,75 @@ def nhl_dashboard_main():
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
         </div>
+        
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
+        
         <script>
-            let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; let chartInstance = null; let compareBasePlayer = null;
+            let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
+            let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
+            const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
+
             async function init() {
                 try {
                     const res = await fetch('/api/data?t=' + Date.now()); rawData = await res.json();
-                    document.getElementById('loading').style.display = 'none'; render();
+                    document.getElementById('loading').style.display = 'none';
+                    buildTeamBar(); render();
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
+
+            function buildTeamBar() {
+                const bar = document.getElementById('team-bar');
+                bar.innerHTML = teams.map(t => `<img src="https://assets.nhle.com/logos/nhl/svg/${t}_light.svg" class="team-logo-btn" id="btn-${t}" onclick="filterByTeam('${t}')" title="${t}">`).join('');
+            }
+
+            function filterByTeam(team) {
+                if (currentTeam === team) {
+                    currentTeam = null;
+                    document.querySelectorAll('.team-logo-btn').forEach(b => b.classList.remove('active'));
+                } else {
+                    currentTeam = team;
+                    document.querySelectorAll('.team-logo-btn').forEach(b => b.classList.remove('active'));
+                    document.getElementById('btn-' + team).classList.add('active');
+                }
+                render();
+            }
+
             function switchMode(mode) {
                 currentMode = mode;
                 document.getElementById('regular-mode').classList.toggle('active', mode === 'regular');
                 document.getElementById('playoff-mode').classList.toggle('active', mode === 'playoff');
                 updateRankInfo(); render();
             }
+
             function switchType(type) {
                 currentType = type;
                 document.getElementById('skater-tab').classList.toggle('active', type === 'skater');
                 document.getElementById('goalie-tab').classList.toggle('active', type === 'goalie');
                 updateRankInfo(); render();
             }
+
             function updateRankInfo() {
                 const criteria = currentType === 'skater' ? 'POINTS' : 'WINS';
                 const gp = currentMode === 'regular' ? (currentType === 'skater' ? '5' : '3') : (currentType === 'skater' ? '2' : '1');
                 document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN ${gp} GP)`;
             }
+
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
                 const grid = document.getElementById('main-grid'); if(!rawData) return;
-                const data = rawData[currentMode][currentType + "s"];
+                let data = rawData[currentMode][currentType + "s"];
+                
+                // [수정] 팀 필터 로직 적용
+                if (currentTeam) data = data.filter(p => p.abbr === currentTeam);
+                
                 grid.innerHTML = '';
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 let idx = 0;
                 function draw() {
                     const chunk = filtered.slice(idx, idx + 40);
                     const html = chunk.map(p => {
-                        const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
                         const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
                         return `
                         <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
@@ -188,7 +232,7 @@ def nhl_dashboard_main():
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
                                 <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
                                 <div><h3 style="margin:0; font-size:1rem;">${p.name}</h3><small>${subInfo}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
+                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
                     }).join('');
@@ -197,10 +241,12 @@ def nhl_dashboard_main():
                 }
                 draw();
             }
+
             function handleCardClick(id) {
                 if (compareBasePlayer) { openModal(id, compareBasePlayer); compareBasePlayer = null; render(); }
                 else { openModal(id); }
             }
+
             function openModal(id, compareWith = null) {
                 const data = rawData[currentMode][currentType + "s"];
                 const p = data.find(x => x.id === id); if(!p) return;
