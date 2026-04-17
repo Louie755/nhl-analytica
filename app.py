@@ -67,6 +67,7 @@ def get_nhl_data():
         gp = max(1, p["gp"]); ppg = round(p["pts"]/gp, 2)
         ir = min(99.9, round((ppg * 40) + ((p["pts"]/max(1, p["sh"]))*25) + (max(0, p["pm"]+10)/2) + (gp/10), 1))
         skaters.append({**p, "ppg": ppg, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "prob": min(round(((p["g"]/gp)*50 + (p["sh"]/gp)*10), 1), 95.0), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
+    
     goalie_dict = {}
     for p in g_raw:
         pid = str(p.get('playerId'))
@@ -74,10 +75,12 @@ def get_nhl_data():
             goalie_dict[pid] = {"id": pid, "name": p.get('goalieFullName'), "type": "goalie", "abbr": str(p.get('teamAbbrev', '')).upper(), "pos": "G", "gp": 0, "w": 0, "so": 0, "ga": 0, "sa": 0}
         t = goalie_dict[pid]
         t["gp"] += p.get('gamesPlayed', 0); t["w"] += p.get('wins', 0); t["so"] += p.get('shutouts', 0); t["ga"] += p.get('goalsAgainst', 0); t["sa"] += p.get('shotsAgainst', 0)
+    
     goalies = []
     for pid, p in goalie_dict.items():
-        gp = max(1, p["gp"]); sv_val = round((1 - (p["ga"]/max(1, p["sa"]))) * 100, 1) if p["sa"] > 0 else 0.0
+        gp = max(1, p["gp"]); sv_val = round((1 - (p["ga"]/max(1, p["sa"]))) * 100, 2) if p["sa"] > 0 else 0.0
         gaa = round(p["ga"]/gp, 2); ir = min(99.9, round((p["w"]/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
+        # SV%가 정확히 전달되도록 필드 고정
         goalies.append({**p, "sv": sv_val, "gaa": gaa, "ir": ir, "team": TEAM_MAP.get(p["abbr"], p["abbr"]), "trending": pid in today_scorers, "col": TEAM_COLORS.get(p["abbr"], "#38bdf8")})
     return jsonify({"skaters": skaters, "goalies": goalies})
 
@@ -124,6 +127,7 @@ def nhl_dashboard_main():
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
             .comp-btn { position: absolute; top: 40px; right: 40px; background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; transition: 0.3s; z-index: 100;}
             .comp-btn:hover { background: #fff; transform: translateY(-2px); }
+            .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
             .comp-active { border: 2px solid #fff !important; animation: pulse 1.5s infinite; }
             @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
         </style>
@@ -177,11 +181,13 @@ def nhl_dashboard_main():
                     const html = chunk.map(p => {
                         const trend = p.trending ? '<span class="trend-up">▲</span>' : '';
                         const isComparing = compareBasePlayer && compareBasePlayer.id === p.id;
+                        // [수정] 골리 카드일 때 undefined 대신 SV% 표시
+                        const subInfo = currentTab === 'skater' ? `${p.abbr} • ${p.pos} • PPG ${p.ppg}` : `${p.abbr} • G • SV% ${p.sv}`;
                         return `
                         <div class="card ${isComparing ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}', '${p.type}')" style="--t-color:${p.col}">
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${p.abbr} • ${p.pos} • PPG ${p.ppg}</small></div>
+                                <div><h3 style="margin:0; font-size:1.1rem;">${p.name}</h3><small>${subInfo}</small></div>
                                 <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${currentTab==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${currentTab==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
@@ -222,7 +228,9 @@ def nhl_dashboard_main():
                 document.getElementById('mInfo').innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:20px 0 5px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="color:${p.col}; font-weight:800; font-size:1.2rem; margin-bottom:20px;">${p.team}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${type==='skater'?p.prob+'%':p.so}</b></div>`;
                 
                 const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}', '${p.type}')">COMPARE</button>`;
-                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas>`;
+                const infoText = compareWith ? `COMPARING: ${p.name} (Blue) VS ${compareWith.name} (White)` : `LEAGUE AVG (Dotted Line) GUIDE ENABLED`;
+                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${infoText}</div>`;
+
                 document.getElementById('modal').style.display = 'block';
                 drawRadar(p, compareWith);
             }
