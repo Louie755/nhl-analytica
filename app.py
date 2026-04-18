@@ -37,6 +37,22 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
+# --- [추가] 사이트맵 기능 ---
+@app.route('/sitemap.xml')
+def sitemap_xml_route():
+    host_root = request.host_url
+    now_date = datetime.now().strftime('%Y-%m-%d')
+    sitemap_data = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <url>
+            <loc>{host_root}</loc>
+            <lastmod>{now_date}</lastmod>
+            <priority>1.0</priority>
+        </url>
+    </urlset>"""
+    return Response(sitemap_data, mimetype='application/xml')
+# -------------------------
+
 @app.route('/api/data')
 def get_nhl_data():
     now = datetime.now()
@@ -103,11 +119,13 @@ def nhl_dashboard_main():
     <head>
         <meta charset="UTF-8">
         <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
+        
         <title>NHL ANALYTICA</title>
+        
         <link rel="icon" href="/static/favicon.png" type="image/png">
         <link rel="shortcut icon" href="/static/favicon.png">
         <link rel="apple-touch-icon" href="/static/favicon.png">
-        
+
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
