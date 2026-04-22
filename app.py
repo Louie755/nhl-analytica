@@ -52,15 +52,17 @@ def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
     
-    # [수정] 시즌 데이터를 20252026으로 고정하여 API 공백 이슈 해결
+    # [핵심 수정] 시즌을 20252026으로 수동 고정하여 API가 빈 데이터를 주는 현상 방지
     season = "20252026"
     
-    s_reg, s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
-    g_reg, g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
+    s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
+    s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
+    g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
+    g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
-        # [수정] 데이터 부재 시 빈 리스트 반환 예외 처리
+        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -87,7 +89,7 @@ def get_nhl_data():
         return processed
 
     def process_goalies(raw, min_gp):
-        # [수정] 데이터 부재 시 빈 리스트 반환 예외 처리
+        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
