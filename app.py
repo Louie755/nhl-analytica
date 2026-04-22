@@ -51,13 +51,17 @@ def sitemap_xml_route():
 def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
-    season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+    
+    # [수정] 시즌 데이터를 20252026으로 고정하여 API 공백 이슈 해결
+    season = "20252026"
     
     s_reg, s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg, g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
+        # [수정] 데이터 부재 시 빈 리스트 반환 예외 처리
+        if not raw: return []
         processed = []
         for p in raw:
             gp = p.get('gamesPlayed', 0)
@@ -83,6 +87,8 @@ def get_nhl_data():
         return processed
 
     def process_goalies(raw, min_gp):
+        # [수정] 데이터 부재 시 빈 리스트 반환 예외 처리
+        if not raw: return []
         processed = []
         for p in raw:
             gp = p.get('gamesPlayed', 0)
@@ -107,7 +113,6 @@ def get_nhl_data():
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
-    # [수정] 모든 모드에서 최소 1경기(min_gp=1)만 뛰면 표시되도록 수정
     return jsonify({
         "regular": {"skaters": process_skaters(s_reg, 1), "goalies": process_goalies(g_reg, 1)}, 
         "playoff": {"skaters": process_skaters(s_ply, 1), "goalies": process_goalies(g_ply, 1)}
@@ -238,7 +243,6 @@ def nhl_dashboard_main():
 
             function updateRankInfo() {
                 const criteria = currentType === 'skater' ? 'POINTS' : 'WINS';
-                // [수정] 자바스크립트에서도 안내 문구가 1 GP로 나오도록 수정
                 document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN 1 GP)`;
             }
 
