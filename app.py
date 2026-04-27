@@ -124,7 +124,7 @@ def nhl_dashboard_main():
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
-            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(31, 41, 55, 0.45); }
+            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.8); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
@@ -138,12 +138,19 @@ def nhl_dashboard_main():
             .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; transition: 0.3s; padding-bottom: 5px; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; }
-            .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; }
-            .card:hover { transform: translateY(-5px); border-color: var(--accent); }
+            
+            /* 카드 및 S-TIER 최적화 */
+            .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; transform: translateZ(0); contain: layout paint; }
+            .card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
+            
+            .card h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 1rem; line-height: 1.3; }
+            .s-tier-badge { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid #fbbf24; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+
             .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
             .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+            
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
@@ -188,56 +195,26 @@ def nhl_dashboard_main():
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
         
-        <style>
-            /* 1. GPU 가속 및 글래스모피즘 강화 (랙 방지) */
-            .card {
-                background: rgba(255, 255, 255, 0.03) !important;
-                backdrop-filter: blur(12px) saturate(180%);
-                -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                transform: translateZ(0); /* 강제 GPU 가속 */
-                transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
-            }
-            .card:hover {
-                background: rgba(56, 189, 248, 0.1) !important;
-                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
-                border-color: var(--accent) !important;
-            }
-            /* 2. 스크롤 성능 최적화 */
-            #main-grid { will-change: transform; }
-            /* 3. 시각적 유도선 (전문가적 느낌) */
-            .card::after {
-                content: ''; position: absolute; bottom: 0; right: 0;
-                width: 40px; height: 40px;
-                background: linear-gradient(135deg, transparent 50%, rgba(56,189,248,0.1) 50%);
-                pointer-events: none;
-            }
-        </style>
-
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
             const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
 
-            // [Upgrade] 지능형 데이터 캐싱 (API 부하 감소 및 랙 방지)
+            // 성능 업그레이드: 지능형 캐싱
             async function init() {
                 try {
-                    const cacheKey = 'nhl_data_v1';
-                    const cachedData = sessionStorage.getItem(cacheKey);
-                    
-                    if (cachedData) {
-                        rawData = JSON.parse(cachedData);
+                    const cacheKey = 'nhl_data_v2';
+                    const cached = sessionStorage.getItem(cacheKey);
+                    if (cached) {
+                        rawData = JSON.parse(cached);
                         document.getElementById('loading').style.display = 'none';
                         buildTeamBar(); render();
                     }
-
                     const res = await fetch('/api/data?t=' + Date.now()); 
-                    const freshData = await res.json();
-                    
-                    // 데이터가 바뀌었을 때만 리렌더링
-                    if (JSON.stringify(freshData) !== cachedData) {
-                        rawData = freshData;
-                        sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
+                    const fresh = await res.json();
+                    if (JSON.stringify(fresh) !== cached) {
+                        rawData = fresh;
+                        sessionStorage.setItem(cacheKey, JSON.stringify(fresh));
                         document.getElementById('loading').style.display = 'none';
                         buildTeamBar(); render();
                     }
@@ -302,8 +279,8 @@ def nhl_dashboard_main():
                         const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
                         const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
                         
-                        // [Upgrade] IR 등급 뱃지 (데이터 레이어 추가)
-                        const irGrade = p.ir >= 90 ? '<span style="color:#fbbf24; font-size:0.6rem; border:1px solid #fbbf24; padding:1px 3px; border-radius:3px; margin-left:5px;">S-TIER</span>' : '';
+                        // S-TIER 뱃지 로직 (레이아웃 보호)
+                        const tierBadge = p.ir >= 90 ? '<span class="s-tier-badge">S-TIER</span>' : '';
 
                         return `
                         <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
@@ -311,13 +288,16 @@ def nhl_dashboard_main():
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
                                 <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1rem;">${p.name}${irGrade}</h3><small>${subInfo}</small></div>
-                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
+                                <div style="flex:1; min-width:0;">
+                                    <h3>${p.name}${tierBadge}</h3>
+                                    <small>${subInfo}</small>
+                                </div>
+                                <div style="text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
                     }).join('');
                     grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40; if(idx < filtered.length) setTimeout(draw, 1); // 랙 최소화를 위해 딜레이 1ms로 단축
+                    idx += 40; if(idx < filtered.length) setTimeout(draw, 1);
                 }
                 draw();
             }
@@ -355,16 +335,16 @@ def nhl_dashboard_main():
                 chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
             }
             init();
-        </script>
-        
-        <script>
-            window.iceAnalytics = {
-                getTopHook: () => {
-                    const top = document.querySelector('.card h3').innerText;
-                    const pts = document.querySelector('.card b').innerText;
-                    console.log(`%c[Ice Analytics Hook] "NHL 현재 1위 ${top}, IR 수치 ${pts}가 말해주는 충격적 진실..."`, "color:#38bdf8; font-weight:bold; font-size:14px;");
-                }
-            };
+
+            // 스크롤 최적화 스크립트
+            let isScrolling;
+            window.addEventListener('scroll', () => {
+                window.clearTimeout(isScrolling);
+                document.body.style.pointerEvents = 'none';
+                isScrolling = setTimeout(() => {
+                    document.body.style.pointerEvents = 'auto';
+                }, 100);
+            }, { passive: true });
         </script>
     </body>
     </html>
