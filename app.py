@@ -124,7 +124,7 @@ def nhl_dashboard_main():
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
-            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.8); }
+            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.7); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
@@ -139,18 +139,46 @@ def nhl_dashboard_main():
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; }
             
-            /* 카드 및 S-TIER 최적화 */
-            .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; transform: translateZ(0); contain: layout paint; }
-            .card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            /* [업그레이드: Glassmorphism 2.0 & 랙 방지] */
+            .card { 
+                background: var(--card) !important; 
+                border-radius: 20px; 
+                padding: 20px; 
+                cursor: pointer; 
+                border: 1px solid rgba(56, 189, 248, 0.15); 
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+                position: relative; 
+                transform: translateZ(0); 
+                contain: layout paint;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+            .card:hover { transform: translateY(-5px) scale(1.02); border-color: var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
             
+            /* [업그레이드: S-TIER 레이아웃 수정] */
             .card h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 1rem; line-height: 1.3; }
-            .s-tier-badge { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid #fbbf24; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+            .s-tier-badge { 
+                background: rgba(251, 191, 36, 0.1); 
+                color: #fbbf24; 
+                border: 1px solid #fbbf24; 
+                font-size: 0.6rem; 
+                font-weight: 900; 
+                padding: 2px 6px; 
+                border-radius: 4px; 
+                white-space: nowrap; 
+                flex-shrink: 0;
+                box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+            }
 
             .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
             .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             
+            /* [업그레이드: IR 지표 다이내믹 강조] */
+            .ir-val { position: relative; display: inline-block; animation: dataPulse 3s infinite ease-in-out; }
+            @keyframes dataPulse { 0%, 100% { text-shadow: 0 0 5px rgba(56, 189, 248, 0.3); } 50% { text-shadow: 0 0 12px rgba(56, 189, 248, 0.7); color: #fff; } }
+
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
@@ -167,6 +195,11 @@ def nhl_dashboard_main():
             .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: center; }
             .prob-box b { color: #fbbf24; font-size: 2rem; display: block; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
+            
+            /* [업그레이드: YT 훅 생성 버튼] */
+            .yt-hook-btn { position:fixed; bottom:25px; right:25px; z-index:5000; background:rgba(0,0,0,0.85); color:var(--accent); border:1px solid var(--accent); padding:10px 18px; border-radius:25px; font-size:10px; cursor:pointer; font-family:'Syncopate'; font-weight:900; transition:0.3s; }
+            .yt-hook-btn:hover { background:var(--accent); color:#000; transform: scale(1.1); }
+
             .comp-btn { position: absolute; top: 40px; right: 40px; background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; transition: 0.3s; z-index: 100;}
             .comp-btn:hover { background: #fff; transform: translateY(-2px); }
             .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
@@ -195,12 +228,13 @@ def nhl_dashboard_main():
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
         
+        <button class="yt-hook-btn" onclick="generateContentHook()">GET YT HOOK</button>
+
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
             const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
 
-            // 성능 업그레이드: 지능형 캐싱
             async function init() {
                 try {
                     const cacheKey = 'nhl_data_v2';
@@ -276,10 +310,8 @@ def nhl_dashboard_main():
                 function draw() {
                     const chunk = filtered.slice(idx, idx + 40);
                     const html = chunk.map(p => {
-                        const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
+                        const trend = p.trending ? '▲' : '';
                         const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
-                        
-                        // S-TIER 뱃지 로직 (레이아웃 보호)
                         const tierBadge = p.ir >= 90 ? '<span class="s-tier-badge">S-TIER</span>' : '';
 
                         return `
@@ -292,15 +324,40 @@ def nhl_dashboard_main():
                                     <h3>${p.name}${tierBadge}</h3>
                                     <small>${subInfo}</small>
                                 </div>
-                                <div style="text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
+                                <div style="text-align:right;">
+                                    <b class="ir-val" style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}</b>
+                                    <span style="color:#2ecc71; font-size:0.8rem;">${trend}</span><br>
+                                    <small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small>
+                                </div>
                             </div>
                         </div>`;
                     }).join('');
                     grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40; if(idx < filtered.length) setTimeout(draw, 1);
+                    idx += 40; if(idx < filtered.length) requestAnimationFrame(draw);
                 }
                 draw();
             }
+
+            // [업그레이드: 데이터 스토리텔링 훅 생성 엔진]
+            window.generateContentHook = function() {
+                const grid = document.getElementById('main-grid');
+                const topPlayerCard = grid.querySelector('.card');
+                if (!topPlayerCard) return alert("데이터 로딩 중입니다.");
+
+                const name = topPlayerCard.querySelector('h3').innerText.split('S-TIER')[0].trim();
+                const irVal = topPlayerCard.querySelector('.ir-val').innerText;
+                const rank = topPlayerCard.querySelector('.rank-tag').innerText;
+
+                const hooks = [
+                    `[압도적 지표] NHL 전체 ${rank}, ${name}의 영향력 수치가 ${irVal}에 도달했습니다. 이건 단순한 커리어 하이가 아닙니다.`,
+                    `[머니볼 분석] 왜 데이터는 ${name}를 '언터처블'로 분류할까요? ${irVal}점이라는 수치 뒤에 숨은 진실을 공개합니다.`,
+                    `[Ice Analytics 단독] ${name}의 가치는 포인트 그 이상입니다. IR 지표로 본 역대급 시즌의 서막.`
+                ];
+
+                console.log("%c🎬 Ice Analytics 전용 스토리텔링 스크립트", "color: #38bdf8; font-weight: bold; font-size: 14px;");
+                hooks.forEach((h, i) => console.log(`${i+1}. ${h}`));
+                alert("YouTube용 도입부 훅 3종이 생성되었습니다 (F12 콘솔 확인).");
+            };
 
             function handleCardClick(id) {
                 if (compareBasePlayer) { openModal(id, compareBasePlayer); compareBasePlayer = null; render(); }
@@ -336,7 +393,7 @@ def nhl_dashboard_main():
             }
             init();
 
-            // 스크롤 최적화 스크립트
+            // 랙 방지용 스크롤 이벤트 최적화
             let isScrolling;
             window.addEventListener('scroll', () => {
                 window.clearTimeout(isScrolling);
