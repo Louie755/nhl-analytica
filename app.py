@@ -118,9 +118,19 @@ def nhl_dashboard_main():
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
-        <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
-        <title>NHL ANALYTICA</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <title>NHL ANALYTICA - 실시간 임팩트 레이팅 지표</title>
+        <meta name="description" content="NHL Analytica: 12년 선수 경험과 데이터 분석으로 구현한 독자적 IR 지표 기반 NHL 실시간 통계 플랫폼.">
+        <meta name="keywords" content="NHL, 하키 분석, 아이스하키, NHL Analytica, 실시간 통계, IR 지표">
+        
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><path d='M12,22V12 L20.47,7.38 M12,12L3.53,7.38' stroke='%2338bdf8' stroke-width='1.2'/><path d='M18,15V11.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M15,15V13' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M12,15V12.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/></svg>" type="image/svg+xml">
+        
+        <meta property="og:title" content="NHL ANALYTICA">
+        <meta property="og:description" content="실시간 NHL 선수 임팩트 데이터 분석 사이트">
+        <meta property="og:type" content="website">
+        <meta property="og:image" content="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' viewBox='0 0 1200 630'><rect width='1200' height='630' fill='%23030712'/><text x='600' y='315' font-family='Arial' font-size='60' fill='%2338bdf8' text-anchor='middle'>NHL ANALYTICA</text></svg>">
+
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
@@ -139,7 +149,6 @@ def nhl_dashboard_main():
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; }
             
-            /* [업그레이드: Glassmorphism 2.0 & 랙 방지] */
             .card { 
                 background: var(--card) !important; 
                 border-radius: 20px; 
@@ -156,7 +165,6 @@ def nhl_dashboard_main():
             .card:hover { transform: translateY(-5px) scale(1.02); border-color: var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
             
-            /* [업그레이드: S-TIER 레이아웃 수정] */
             .card h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 1rem; line-height: 1.3; }
             .s-tier-badge { 
                 background: rgba(251, 191, 36, 0.1); 
@@ -168,14 +176,12 @@ def nhl_dashboard_main():
                 border-radius: 4px; 
                 white-space: nowrap; 
                 flex-shrink: 0;
-                box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
             }
 
             .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
             .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             
-            /* [업그레이드: IR 지표 다이내믹 강조] */
             .ir-val { position: relative; display: inline-block; animation: dataPulse 3s infinite ease-in-out; }
             @keyframes dataPulse { 0%, 100% { text-shadow: 0 0 5px rgba(56, 189, 248, 0.3); } 50% { text-shadow: 0 0 12px rgba(56, 189, 248, 0.7); color: #fff; } }
 
@@ -196,7 +202,6 @@ def nhl_dashboard_main():
             .prob-box b { color: #fbbf24; font-size: 2rem; display: block; }
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
             
-            /* [업그레이드: YT 훅 생성 버튼] */
             .yt-hook-btn { position:fixed; bottom:25px; right:25px; z-index:5000; background:rgba(0,0,0,0.85); color:var(--accent); border:1px solid var(--accent); padding:10px 18px; border-radius:25px; font-size:10px; cursor:pointer; font-family:'Syncopate'; font-weight:900; transition:0.3s; }
             .yt-hook-btn:hover { background:var(--accent); color:#000; transform: scale(1.1); }
 
@@ -338,7 +343,6 @@ def nhl_dashboard_main():
                 draw();
             }
 
-            // [업그레이드: 데이터 스토리텔링 훅 생성 엔진]
             window.generateContentHook = function() {
                 const grid = document.getElementById('main-grid');
                 const topPlayerCard = grid.querySelector('.card');
@@ -393,7 +397,6 @@ def nhl_dashboard_main():
             }
             init();
 
-            // 랙 방지용 스크롤 이벤트 최적화
             let isScrolling;
             window.addEventListener('scroll', () => {
                 window.clearTimeout(isScrolling);
