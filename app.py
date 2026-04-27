@@ -51,10 +51,7 @@ def sitemap_xml_route():
 def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
-    
-    # [핵심 수정] 시즌을 20252026으로 수동 고정하여 API가 빈 데이터를 주는 현상 방지
     season = "20252026"
-    
     s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
     s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
@@ -62,7 +59,6 @@ def get_nhl_data():
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
-        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -70,11 +66,9 @@ def get_nhl_data():
             if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
-            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
-
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
                 "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, 
@@ -89,7 +83,6 @@ def get_nhl_data():
         return processed
 
     def process_goalies(raw, min_gp):
-        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -98,11 +91,9 @@ def get_nhl_data():
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
-            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
-
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", 
                 "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, 
@@ -196,17 +187,60 @@ def nhl_dashboard_main():
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 1 GP)</div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
+        
+        <style>
+            /* 1. GPU 가속 및 글래스모피즘 강화 (랙 방지) */
+            .card {
+                background: rgba(255, 255, 255, 0.03) !important;
+                backdrop-filter: blur(12px) saturate(180%);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                transform: translateZ(0); /* 강제 GPU 가속 */
+                transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
+            }
+            .card:hover {
+                background: rgba(56, 189, 248, 0.1) !important;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+                border-color: var(--accent) !important;
+            }
+            /* 2. 스크롤 성능 최적화 */
+            #main-grid { will-change: transform; }
+            /* 3. 시각적 유도선 (전문가적 느낌) */
+            .card::after {
+                content: ''; position: absolute; bottom: 0; right: 0;
+                width: 40px; height: 40px;
+                background: linear-gradient(135deg, transparent 50%, rgba(56,189,248,0.1) 50%);
+                pointer-events: none;
+            }
+        </style>
+
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
             const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
 
+            // [Upgrade] 지능형 데이터 캐싱 (API 부하 감소 및 랙 방지)
             async function init() {
                 try {
+                    const cacheKey = 'nhl_data_v1';
+                    const cachedData = sessionStorage.getItem(cacheKey);
+                    
+                    if (cachedData) {
+                        rawData = JSON.parse(cachedData);
+                        document.getElementById('loading').style.display = 'none';
+                        buildTeamBar(); render();
+                    }
+
                     const res = await fetch('/api/data?t=' + Date.now()); 
-                    rawData = await res.json();
-                    document.getElementById('loading').style.display = 'none';
-                    buildTeamBar(); render();
+                    const freshData = await res.json();
+                    
+                    // 데이터가 바뀌었을 때만 리렌더링
+                    if (JSON.stringify(freshData) !== cachedData) {
+                        rawData = freshData;
+                        sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
+                        document.getElementById('loading').style.display = 'none';
+                        buildTeamBar(); render();
+                    }
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
 
@@ -267,19 +301,23 @@ def nhl_dashboard_main():
                     const html = chunk.map(p => {
                         const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
                         const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
+                        
+                        // [Upgrade] IR 등급 뱃지 (데이터 레이어 추가)
+                        const irGrade = p.ir >= 90 ? '<span style="color:#fbbf24; font-size:0.6rem; border:1px solid #fbbf24; padding:1px 3px; border-radius:3px; margin-left:5px;">S-TIER</span>' : '';
+
                         return `
                         <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
                             <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
                                 <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div><h3 style="margin:0; font-size:1rem;">${p.name}</h3><small>${subInfo}</small></div>
+                                <div><h3 style="margin:0; font-size:1rem;">${p.name}${irGrade}</h3><small>${subInfo}</small></div>
                                 <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
                     }).join('');
                     grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40; if(idx < filtered.length) setTimeout(draw, 10);
+                    idx += 40; if(idx < filtered.length) setTimeout(draw, 1); // 랙 최소화를 위해 딜레이 1ms로 단축
                 }
                 draw();
             }
@@ -317,6 +355,16 @@ def nhl_dashboard_main():
                 chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
             }
             init();
+        </script>
+        
+        <script>
+            window.iceAnalytics = {
+                getTopHook: () => {
+                    const top = document.querySelector('.card h3').innerText;
+                    const pts = document.querySelector('.card b').innerText;
+                    console.log(`%c[Ice Analytics Hook] "NHL 현재 1위 ${top}, IR 수치 ${pts}가 말해주는 충격적 진실..."`, "color:#38bdf8; font-weight:bold; font-size:14px;");
+                }
+            };
         </script>
     </body>
     </html>
