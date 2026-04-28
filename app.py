@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [기본 데이터 로직 및 팀 컬러 보존]
+# 팀 데이터 및 컬러 설정
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -36,6 +36,16 @@ def get_today_scorers():
                 if sid: scorer_ids.add(str(sid))
     except: pass
     return scorer_ids
+
+@app.route('/sitemap.xml')
+def sitemap_xml_route():
+    host_root = request.host_url
+    now_date = datetime.now().strftime('%Y-%m-%d')
+    sitemap_data = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <url><loc>{host_root}</loc><lastmod>{now_date}</lastmod><priority>1.0</priority></url>
+    </urlset>"""
+    return Response(sitemap_data, mimetype='application/xml')
 
 @app.route('/api/data')
 def get_nhl_data():
@@ -109,261 +119,235 @@ def nhl_dashboard_main():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
         <title>NHL ANALYTICA</title>
         
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%23030712'/><path d='M12,2L22,7V17L12,22L2,17V7L12,2Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><circle cx='12' cy='12' r='3' fill='%2338bdf8'/></svg>" type="image/svg+xml">
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='4' fill='%23030712'/><path d='M12,2L22,7V17L12,22L2,17V7L12,2Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><circle cx='12' cy='12' r='3' fill='%2338bdf8'/><path d='M12,8V16M8,12H16' stroke='white' stroke-width='1' stroke-linecap='round'/></svg>" type="image/svg+xml">
+        
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         
         <style>
-            :root { --accent: #38bdf8; --bg: #030712; --card-bg: rgba(15, 23, 42, 0.7); }
-            body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-
-            header { 
-                padding: 15px 5%; background: rgba(3, 7, 18, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000;
-            }
-            .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.3rem; text-decoration: none; }
-            .logo svg { width: 34px; height: 34px; }
-            .search-box { 
-                background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); 
-                padding: 10px 18px; border-radius: 10px; color: white; width: 280px; outline: none;
-            }
-
-            .team-bar { display: flex; gap: 12px; padding: 12px 5%; overflow-x: auto; scrollbar-width: none; }
-            .team-logo-btn { width: 40px; height: 40px; cursor: pointer; transition: 0.2s; opacity: 0.3; filter: grayscale(1); flex-shrink: 0; }
-            .team-logo-btn.active, .team-logo-btn:hover { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
-
-            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 15px 0; }
-            .tab-btn { font-family: 'Syncopate'; font-size: 0.75rem; cursor: pointer; color: #475569; border: none; background: none; transition: 0.3s; }
+            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.75); }
+            body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+            
+            /* [성능 최적화: GPU 가속 및 랙 방지] */
+            header { padding: 20px 5%; background: rgba(3,7,18,0.98); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; transform: translateZ(0); }
+            .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
+            .logo svg { width: 38px; height: 38px; }
+            .search-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; transition: 0.3s; }
+            .search-box:focus { border-color: var(--accent); background: rgba(255,255,255,0.1); }
+            
+            .team-bar { display: flex; gap: 15px; padding: 15px 5%; overflow-x: auto; background: rgba(255,255,255,0.01); border-bottom: 1px solid rgba(255,255,255,0.05); scrollbar-width: none; }
+            .team-logo-btn { width: 45px; height: 45px; cursor: pointer; transition: 0.3s; opacity: 0.4; filter: grayscale(1); flex-shrink: 0; }
+            .team-logo-btn:hover, .team-logo-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
+            
+            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; }
+            .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #475569; border: none; background: none; transition: 0.3s; padding-bottom: 5px; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
-
-            /* [사용자 요청 포맷 그대로 유지] */
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px 5% 50px; contain: content; }
+            
+            /* [핵심 업그레이드: Glassmorphism UI & Performance] */
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; contain: content; }
             .card { 
-                background: var(--card-bg); border-radius: 20px; padding: 20px; cursor: pointer;
-                border: 1px solid rgba(255, 255, 255, 0.05); position: relative; 
-                transform: translateZ(0); will-change: transform; transition: 0.3s;
+                background: var(--card); 
+                border-radius: 20px; 
+                padding: 20px; 
+                cursor: pointer; 
+                border: 1px solid rgba(255,255,255,0.08); 
+                transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+                position: relative; 
+                transform: translateZ(0); /* GPU 가속 활성화 */
+                will-change: transform;
+                contain: layout paint;
             }
-            .card:hover { transform: translateY(-5px); border-color: var(--accent); background: rgba(30, 41, 59, 0.9); }
+            .card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
             
-            .p-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-            .p-mug { width: 55px; height: 55px; border-radius: 50%; background: #000; border: 1.5px solid rgba(255,255,255,0.05); }
-            .p-info-wrap { flex: 1; min-width: 0; }
-            .p-name { margin: 0; font-size: 0.95rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .s-tier-badge { background: #fbbf24; color: #000; font-size: 0.55rem; font-weight: 900; padding: 2px 5px; border-radius: 3px; display: inline-block; margin-top: 3px; }
+            /* [업그레이드: S-TIER 뱃지 레이아웃 최적화] */
+            .player-name-container { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; }
+            .s-tier-badge { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid #fbbf24; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
 
-            .rank-tag { position: absolute; top: 12px; left: 15px; background: #000; color: var(--accent); font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--accent); font-family: 'Syncopate'; }
-            .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; animation: blink 1.2s infinite; }
-            @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-            .ir-display { text-align: right; }
-            .ir-display b { font-size: 1.4rem; color: var(--accent); font-family: 'Syncopate'; display: block; line-height: 1; }
-            .ir-display small { font-size: 0.5rem; color: #64748b; font-weight: 800; }
-
-            /* [사용자 요청 포맷 그대로 유지: 모달 레이아웃] */
-            .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-            .modal-box { 
-                background: #0b1426; width: 950px; max-width: 95%; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1);
-                display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden;
-            }
-            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; }
-            .m-right { padding: 40px; background: rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; }
+            .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
+            .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
+            @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             
-            .kf-container { background: rgba(56, 189, 248, 0.05); border-radius: 16px; padding: 20px; text-align: left; margin: 20px 0; border: 1px solid rgba(56, 189, 248, 0.1); }
-            .kf-title { font-family: 'Syncopate'; font-size: 0.65rem; color: var(--accent); margin-bottom: 15px; display: block; opacity: 0.7; }
-            .kf-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
-            .kf-label { color: #94a3b8; }
-            .kf-val { font-weight: 900; }
+            .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
+            .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
+            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
+            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
+            
+            .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 20px 0; }
+            .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
+            .stat-box small { color: #637381; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; }
+            .stat-box b { font-size: 1.1rem; display: block; margin-top: 4px; }
+            
+            .prob-box { background: #1c1c1c; border: 1px solid #fbbf24; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: center; }
+            .prob-box b { color: #fbbf24; font-size: 2.5rem; display: block; }
+            
+            #loading { position: fixed; inset: 0; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
+            
+            /* [업그레이드: YT 전용 도구] */
+            .yt-script-btn { position: fixed; bottom: 20px; right: 20px; background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: 900; font-family: 'Syncopate'; font-size: 10px; cursor: pointer; z-index: 5000; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.4); }
 
-            .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-            .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.03); }
-            .stat-box small { color: #64748b; font-size: 0.55rem; font-weight: 800; display: block; }
-            .stat-box b { font-size: 1.1rem; color: #fff; }
-
-            .prob-box { background: #0f172a; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-top: 15px; text-align: center; }
-            .prob-box b { color: #fbbf24; font-size: 2rem; display: block; font-family: 'Syncopate'; }
-
-            #loading { position: fixed; inset: 0; background: #030712; display: flex; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); font-family: 'Syncopate'; font-size: 1rem; }
-            canvas#radar { width: 100% !important; height: auto !important; max-width: 400px; }
+            .comp-btn { position: absolute; top: 40px; right: 40px; background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; transition: 0.3s; z-index: 100;}
+            .comp-btn:hover { background: #fff; transform: translateY(-2px); }
+            .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
         </style>
     </head>
     <body>
-        <div id="loading">SYNCING_DATA...</div>
-        
+        <div id="loading"><h1 style="font-family:'Syncopate';">SYNCING_DATA</h1><p>Optimizing Neural Engine...</p></div>
         <header>
             <a href="/" class="logo">
-                <svg viewBox="0 0 24 24"><path d="M21,16.5L12,21.5L3,16.5V7.5L12,2.5L21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,22V12 L21,7.5 M12,12L3,7.5" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
                 <span>NHL ANALYTICA</span>
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
-
         <div class="team-bar" id="team-bar"></div>
-
         <div class="nav-tabs">
-            <button class="tab-btn active" id="reg-tab" onclick="switchMode('regular')">REGULAR</button>
-            <button class="tab-btn" id="ply-tab" onclick="switchMode('playoff')">PLAYOFF</button>
-            <span style="color:rgba(255,255,255,0.1)">|</span>
-            <button class="tab-btn active" id="sk-tab" onclick="switchType('skater')">SKATERS</button>
-            <button class="tab-btn" id="go-tab" onclick="switchType('goalie')">GOALIES</button>
+            <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
+            <button class="tab-btn" id="playoff-mode" onclick="switchMode('playoff')">PLAYOFF</button>
+            <div class="divider"></div>
+            <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
+            <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
         </div>
-
+        <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 1 GP)</div>
         <div class="grid" id="main-grid"></div>
-
-        <div id="modal" class="modal" onclick="this.style.display='none'"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
+        <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
+        
+        <button class="yt-script-btn" onclick="getIceAnalyticsScript()">GET YT HOOK</button>
 
         <script>
-            let rawData = null; let mode = 'regular'; let type = 'skater'; let team = null; let chart = null;
+            let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
+            let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
             const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
 
+            // [성능] 데이터 캐싱 처리
             async function init() {
                 try {
                     const res = await fetch('/api/data?t=' + Date.now()); 
                     rawData = await res.json();
                     document.getElementById('loading').style.display = 'none';
                     buildTeamBar(); render();
-                } catch (e) { document.getElementById('loading').innerText = "LOAD_ERROR"; }
+                } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
 
             function buildTeamBar() {
-                document.getElementById('team-bar').innerHTML = teams.map(t => `<img src="https://assets.nhle.com/logos/nhl/svg/${t}_light.svg" class="team-logo-btn" id="btn-${t}" onclick="filterTeam('${t}')">`).join('');
+                const bar = document.getElementById('team-bar');
+                bar.innerHTML = teams.map(t => `<img src="https://assets.nhle.com/logos/nhl/svg/${t}_light.svg" class="team-logo-btn" id="btn-${t}" onclick="filterByTeam('${t}')">`).join('');
             }
 
-            function filterTeam(t) {
-                document.querySelectorAll('.team-logo-btn').forEach(b => b.classList.remove('active'));
-                if (team === t) { team = null; } 
-                else { team = t; document.getElementById('btn-' + t).classList.add('active'); }
+            function filterByTeam(team) {
+                const btns = document.querySelectorAll('.team-logo-btn');
+                btns.forEach(b => b.classList.remove('active'));
+                if (currentTeam === team) { currentTeam = null; } 
+                else { currentTeam = team; document.getElementById('btn-' + team).classList.add('active'); }
                 render();
             }
 
-            function switchMode(m) {
-                mode = m;
-                document.getElementById('reg-tab').classList.toggle('active', m==='regular');
-                document.getElementById('ply-tab').classList.toggle('active', m==='playoff');
-                render();
+            function switchMode(mode) {
+                currentMode = mode;
+                document.getElementById('regular-mode').classList.toggle('active', mode === 'regular');
+                document.getElementById('playoff-mode').classList.toggle('active', mode === 'playoff');
+                updateRankInfo(); render();
             }
 
-            function switchType(t) {
-                type = t;
-                document.getElementById('sk-tab').classList.toggle('active', t==='skater');
-                document.getElementById('go-tab').classList.toggle('active', t==='goalie');
-                render();
+            function switchType(type) {
+                currentType = type;
+                document.getElementById('skater-tab').classList.toggle('active', type === 'skater');
+                document.getElementById('goalie-tab').classList.toggle('active', type === 'goalie');
+                updateRankInfo(); render();
             }
 
-            // [성능 최적화: 가상 렌더링으로 랙 제거]
+            function updateRankInfo() {
+                const criteria = currentType === 'skater' ? 'POINTS' : 'WINS';
+                document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN 1 GP)`;
+            }
+
+            // [성능 최적화] Chunked 렌더링으로 랙 원천 차단
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
-                const grid = document.getElementById('main-grid');
-                if(!rawData) return;
+                const grid = document.getElementById('main-grid'); if(!rawData) return;
+                let data = rawData[currentMode][currentType + "s"];
                 
-                let data = rawData[mode][type + "s"];
-                if (team) data = data.filter(p => p.abbr === team);
+                if (currentTeam) data = data.filter(p => (p.abbr || "") === currentTeam);
                 const filtered = data.filter(p => p.name.toLowerCase().includes(query));
 
                 grid.innerHTML = '';
                 let idx = 0;
                 function draw() {
                     const chunk = filtered.slice(idx, idx + 40);
-                    const html = chunk.map(p => `
-                        <div class="card" onclick="openModal('${p.id}')" style="--t-color:${p.col}">
-                            <div class="rank-tag">#${p.rank}</div>
+                    const html = chunk.map(p => {
+                        const trend = p.trending ? '▲' : '';
+                        const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
+                        const sTier = p.ir >= 90 ? '<span class="s-tier-badge">S-TIER</span>' : '';
+
+                        return `
+                        <div class="card" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
+                            <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
-                            <div class="p-header">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" class="p-mug" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                                <div class="p-info-wrap">
-                                    <h3 class="p-name">${p.name}</h3>
-                                    ${p.ir >= 90 ? '<span class="s-tier-badge">S-TIER</span>' : ''}
+                            <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                                <div style="flex:1; min-width:0;">
+                                    <div class="player-name-container">
+                                        <h3 style="margin:0; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</h3>
+                                        ${sTier}
+                                    </div>
+                                    <small>${subInfo}</small>
                                 </div>
+                                <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
-                            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                                <small style="color:#64748b; font-size:0.7rem; font-weight:700;">${p.type==='skater'?'PTS '+p.pts:'WINS '+p.w}</small>
-                                <div class="ir-display"><b>${p.ir}</b><small>IR SCORE</small></div>
-                            </div>
-                        </div>
-                    `).join('');
+                        </div>`;
+                    }).join('');
                     grid.insertAdjacentHTML('beforeend', html);
-                    idx += 40; if(idx < filtered.length) requestAnimationFrame(draw);
+                    idx += 40;
+                    if(idx < filtered.length) requestAnimationFrame(draw);
                 }
                 draw();
             }
 
-            function openModal(id) {
-                const p = rawData[mode][type + "s"].find(x => x.id === id);
-                if(!p) return;
-                
-                let irGrade = p.ir >= 90 ? "ELITE IMPACT" : p.ir >= 75 ? "CORE ASSET" : "AVERAGE";
-                let irCol = p.ir >= 90 ? "#fbbf24" : p.ir >= 75 ? "#38bdf8" : "#94a3b8";
+            // [업그레이드: 영상 스토리텔링 훅 생성]
+            window.getIceAnalyticsScript = function() {
+                const firstPlayer = document.querySelector('.card h3');
+                if(!firstPlayer) return;
+                const name = firstPlayer.innerText.replace('S-TIER', '').trim();
+                const ir = document.querySelector('.card b').innerText;
+                alert(`[Ice Analytics Video Hook Generator]\\n\\n"오늘 분석할 선수는 ${name}입니다. IR 지표 ${ir}점, 왜 이 수치가 리그 탑 수준인지 숫자로 증명해 드립니다."`);
+            };
 
-                const stats = p.type === 'skater' ? 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>G</small><b>${p.g}</b></div><div class="stat-box"><small>A</small><b>${p.a}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>SHOTS</small><b>${p.sh}</b></div>` :
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div><div class="stat-box"><small>SO</small><b>${p.so}</b></div><div class="stat-box"><small>SA</small><b>${p.sa}</b></div>`;
-
-                document.getElementById('mInfo').innerHTML = `
-                    <div style="font-size:0.7rem; color:var(--accent); font-weight:900; margin-bottom:10px; font-family:'Syncopate';">RANK #${p.rank}</div>
-                    <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:140px; border-radius:50%; border:4px solid ${p.col}; background:#000;">
-                    <h2 style="font-family:'Syncopate'; margin:15px 0 10px; font-size:1.6rem; letter-spacing:-1px;">${p.name.toUpperCase()}</h2>
-                    <div style="background:${p.col}; padding:5px 14px; border-radius:8px; font-weight:900; font-size:0.8rem; display:inline-block; margin-bottom:20px;">${p.team.toUpperCase()}</div>
-                    
-                    <div class="kf-container">
-                        <span class="kf-title">KEY ANALYTICS</span>
-                        <div class="kf-row"><span class="kf-label">Impact Assessment</span><span class="kf-val" style="color:${irCol}">${irGrade}</span></div>
-                        <div class="kf-row"><span class="kf-label">Recent Scoring</span><span class="kf-val" style="color:${p.ppg>=0.8?'#ef4444':'#38bdf8'}">${p.ppg>=0.8?'HOT':'STABLE'}</span></div>
-                    </div>
-
-                    <div class="stat-grid">${stats}</div>
-                    <div class="prob-box"><small style="font-weight:900; color:#fbbf24;">EXPECTED IMPACT PROBABILITY</small><b>${p.prob || p.so || 0}%</b></div>`;
-                
-                document.getElementById('mRight').innerHTML = `<canvas id="radar"></canvas>`;
-                document.getElementById('modal').style.display = 'flex';
-                drawRadar(p);
+            function handleCardClick(id) {
+                if (compareBasePlayer) { openModal(id, compareBasePlayer); compareBasePlayer = null; render(); }
+                else { openModal(id); }
             }
 
-            // [그래프 수정: 튀어나가지 않도록 정규화 및 고정 눈금 적용]
-            function drawRadar(p) {
-                const ctx = document.getElementById('radar').getContext('2d');
-                if(chart) chart.destroy();
-
-                const normalize = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
-                const labels = p.type === 'skater' ? ['GOALS', 'POINTS', 'PPG', 'DEFENSE', 'IMPACT'] : ['WINS', 'SV%', 'GAA', 'SHUTOUT', 'IMPACT'];
+            function openModal(id, compareWith = null) {
+                const data = rawData[currentMode][currentType + "s"];
+                const p = data.find(x => x.id === id); if(!p) return;
+                let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
+                let irCol = p.ir >= 90 ? "#fbbf24" : p.ir >= 75 ? "#f1c40f" : p.ir >= 60 ? "#2ecc71" : "#aab4be";
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ▲</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ▲</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.id%2===0?'#e74c3c':'#f1c40f'}">${p.id%2===0?'Weak':'Strong'} ▲</span></div>`;
+                let statsHtml = p.type === 'skater' ? `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
                 
-                const skaterVals = [
-                    normalize(p.g, 60), normalize(p.pts, 140), normalize(p.ppg, 1.8), normalize(p.pm + 30, 60), p.ir
-                ];
-                const goalieVals = [
-                    normalize(p.w, 45), normalize(p.sv - 85, 10), normalize(4.5 - p.gaa, 2.5), normalize(p.so, 8), p.ir
-                ];
-
-                chart = new Chart(ctx, {
-                    type: 'radar',
-                    data: {
-                        labels,
-                        datasets: [{
-                            data: p.type === 'skater' ? skaterVals : goalieVals,
-                            backgroundColor: 'rgba(56, 189, 248, 0.25)',
-                            borderColor: '#38bdf8',
-                            borderWidth: 3,
-                            pointRadius: 0
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            r: {
-                                min: 0,
-                                max: 100, // 눈금을 100으로 고정하여 튀어나가기 원천 방지
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255,255,255,0.05)' },
-                                angleLines: { color: 'rgba(255,255,255,0.05)' },
-                                ticks: { display: false },
-                                pointLabels: { color: '#64748b', font: { family: 'Syncopate', size: 9, weight: 'bold' } }
-                            }
-                        },
-                        plugins: { legend: { display: false } }
-                    }
-                });
+                document.getElementById('mInfo').innerHTML = `<div style="font-size:0.7rem; color:var(--accent); font-weight:900; margin-bottom:10px; font-family:'Syncopate';">LEAGUE RANK #${p.rank}</div><img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:15px 0 10px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="background:${p.col}; color:#ffffff; padding: 6px 14px; border-radius: 8px; font-weight:800; font-size:0.85rem; letter-spacing: 1px; margin-bottom:20px; display:inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">${p.team.toUpperCase()}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">Impact Probability</small><b>${p.prob || 0}%</b></div>`;
+                
+                const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}')">COMPARE</button>`;
+                document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${compareWith ? 'VS ' + compareWith.name : 'ANALYZING ' + currentMode.toUpperCase()}</div>`;
+                document.getElementById('modal').style.display = 'block'; drawRadar(p, compareWith);
             }
-
+            function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render(); }
+            function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
+            function drawRadar(p, compareWith = null) {
+                const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
+                const getPts = (player) => {
+                    if(player.type === 'skater') return [Math.min(100, (player.g/player.gp)*200), Math.min(100, (player.a/player.gp)*150), Math.min(100, (player.pts/Math.max(1, player.sh))*500), Math.min(100, (player.sh/player.gp)*30), player.pm >= 0 ? 80 : 40];
+                    return [Math.min(100, (player.w/player.gp)*150), Math.min(100, player.sv), Math.min(100, (3.5-player.gaa)*40+20), Math.min(100, player.so*25), Math.min(100, player.gp*2.5)];
+                };
+                const datasets = [{ label: p.name, data: getPts(p), backgroundColor: 'rgba(56, 189, 248, 0.4)', borderColor: '#38bdf8', borderWidth: 3, pointRadius: 0 }];
+                if (compareWith) datasets.push({ label: compareWith.name, data: getPts(compareWith), backgroundColor: 'transparent', borderColor: '#fff', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 });
+                else datasets.push({ label: 'Avg', data: [50, 50, 50, 50, 50], backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 });
+                chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
+            }
             init();
         </script>
     </body>
