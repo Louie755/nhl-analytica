@@ -51,7 +51,10 @@ def sitemap_xml_route():
 def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
+    
+    # [핵심 수정] 시즌을 20252026으로 수동 고정하여 API가 빈 데이터를 주는 현상 방지
     season = "20252026"
+    
     s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
     s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
@@ -59,6 +62,7 @@ def get_nhl_data():
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
+        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -66,9 +70,11 @@ def get_nhl_data():
             if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
+            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
+
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
                 "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, 
@@ -83,6 +89,7 @@ def get_nhl_data():
         return processed
 
     def process_goalies(raw, min_gp):
+        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -91,9 +98,11 @@ def get_nhl_data():
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
+            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
+
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", 
                 "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, 
@@ -118,7 +127,6 @@ def nhl_dashboard_main():
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
         <title>NHL ANALYTICA</title>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><path d='M12,22V12 L20.47,7.38 M12,12L3.53,7.38' stroke='%2338bdf8' stroke-width='1.2'/><path d='M18,15V11.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M15,15V13' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/><path d='M12,15V12.5' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/></svg>" type="image/svg+xml">
@@ -127,66 +135,49 @@ def nhl_dashboard_main():
         <style>
             :root { --accent: #38bdf8; --bg: #030712; --card: rgba(31, 41, 55, 0.45); }
             body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
-            
-            /* 하드웨어 가속 강제 (랙 방지) */
-            * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
-            
             header { padding: 20px 5%; background: rgba(3,7,18,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; backdrop-filter: blur(10px); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
-            .search-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; transition: 0.3s; }
-            .search-box:focus { border-color: var(--accent); background: rgba(255,255,255,0.15); width: 350px; }
-            
-            .team-bar { display: flex; gap: 15px; padding: 15px 5%; overflow-x: auto; background: rgba(255,255,255,0.01); border-bottom: 1px solid rgba(255,255,255,0.05); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+            .search-box { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; }
+            .team-bar { display: flex; gap: 15px; padding: 15px 5%; overflow-x: auto; background: rgba(255,255,255,0.01); border-bottom: 1px solid rgba(255,255,255,0.05); scrollbar-width: none; }
             .team-bar::-webkit-scrollbar { display: none; }
-            .team-logo-btn { width: 45px; height: 45px; cursor: pointer; transition: 0.3s; opacity: 0.4; filter: grayscale(1); flex-shrink: 0; transform: translateZ(0); }
-            .team-logo-btn:hover, .team-logo-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.1) translateZ(0); }
-            
+            .team-logo-btn { width: 45px; height: 45px; cursor: pointer; transition: 0.3s; opacity: 0.4; filter: grayscale(1); flex-shrink: 0; }
+            .team-logo-btn:hover, .team-logo-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
             .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #64748b; border: none; background: none; outline:none; transition: 0.3s; padding-bottom: 5px; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
-            
-            /* 성능 최적화를 위한 contain 속성 사용 */
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; contain: content; }
-            
-            .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; transform: translateZ(0); will-change: transform; }
-            .card:hover { transform: translateY(-5px) translateZ(0); border-color: var(--accent); background: rgba(31, 41, 55, 0.7); }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; }
+            .card { background: var(--card); border-radius: 20px; padding: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; position: relative; }
+            .card:hover { transform: translateY(-5px); border-color: var(--accent); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
-            
             .rank-tag { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
             .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-            
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
-            .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; transform: translateZ(0); }
+            .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
             .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
-            
             .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 20px 0; }
             .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
             .stat-box small { color: #637381; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; }
             .stat-box b { font-size: 1.1rem; display: block; margin-top: 4px; }
-            
             .kf-container { background: #16253d; border: 1.5px solid #1f3a52; border-radius: 12px; padding: 18px; text-align: left; }
             .kf-title { color: var(--accent); font-size: 0.75rem; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; }
             .kf-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
             .kf-label { color: #aab4be; }
             .kf-val { font-weight: 800; }
-            
             .prob-box { background: #1c1c1c; border: 1px solid #5e4d2b; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: center; }
             .prob-box b { color: #fbbf24; font-size: 2rem; display: block; }
-            
             #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #030712; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); }
-            
             .comp-btn { position: absolute; top: 40px; right: 40px; background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 900; font-family: 'Syncopate'; cursor: pointer; transition: 0.3s; z-index: 100;}
             .comp-btn:hover { background: #fff; transform: translateY(-2px); }
-            
-            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+            .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
             .divider { width: 1px; height: 15px; background: rgba(255,255,255,0.1); align-self: center; }
+            .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
         </style>
     </head>
     <body>
-        <div id="loading"><h1 style="font-family:'Syncopate'">SYNCING DATA...</h1><p>Optimizing Neural Engine.</p></div>
+        <div id="loading"><h1>SYNCING LIVE STATS...</h1><p>Initializing Team Rosters.</p></div>
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -205,7 +196,6 @@ def nhl_dashboard_main():
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 1 GP)</div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
-        
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
@@ -216,23 +206,23 @@ def nhl_dashboard_main():
                     const res = await fetch('/api/data?t=' + Date.now()); 
                     rawData = await res.json();
                     document.getElementById('loading').style.display = 'none';
-                    buildTeamBar(); 
-                    render();
+                    buildTeamBar(); render();
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
             }
 
             function buildTeamBar() {
                 const bar = document.getElementById('team-bar');
-                bar.innerHTML = teams.map(t => `<img src="https://assets.nhle.com/logos/nhl/svg/${t}_light.svg" class="team-logo-btn" id="btn-${t}" onclick="filterByTeam('${t}')" loading="lazy">`).join('');
+                bar.innerHTML = teams.map(t => `<img src="https://assets.nhle.com/logos/nhl/svg/${t}_light.svg" class="team-logo-btn" id="btn-${t}" onclick="filterByTeam('${t}')">`).join('');
             }
 
             function filterByTeam(team) {
                 const btns = document.querySelectorAll('.team-logo-btn');
-                btns.forEach(b => b.classList.remove('active'));
                 if (currentTeam === team) {
                     currentTeam = null;
+                    btns.forEach(b => b.classList.remove('active'));
                 } else {
                     currentTeam = team;
+                    btns.forEach(b => b.classList.remove('active'));
                     const target = document.getElementById('btn-' + team);
                     if(target) target.classList.add('active');
                 }
@@ -258,55 +248,38 @@ def nhl_dashboard_main():
                 document.getElementById('rank-info-text').innerText = `RANKING BY ${criteria} (MIN 1 GP)`;
             }
 
-            /* [랙 방지 핵심] - requestAnimationFrame을 이용한 청크 렌더링 */
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
-                const grid = document.getElementById('main-grid'); 
-                if(!rawData) return;
-                
+                const grid = document.getElementById('main-grid'); if(!rawData) return;
                 let data = rawData[currentMode][currentType + "s"];
+                
                 if (currentTeam) {
                     const target = currentTeam.trim().toUpperCase();
                     data = data.filter(p => (p.abbr || "").trim().toUpperCase() === target);
                 }
                 
-                const filtered = data.filter(p => p.name.toLowerCase().includes(query));
                 grid.innerHTML = '';
-                
-                let index = 0;
-                const chunkSize = 24; // 한 번에 그릴 카드 수
+                const filtered = data.filter(p => p.name.toLowerCase().includes(query));
 
+                let idx = 0;
                 function draw() {
-                    const fragment = document.createDocumentFragment();
-                    const chunk = filtered.slice(index, index + chunkSize);
-                    
-                    chunk.forEach(p => {
-                        const div = document.createElement('div');
-                        div.className = `card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}`;
-                        div.style.setProperty('--t-color', p.col);
-                        div.onclick = () => handleCardClick(p.id);
-                        
+                    const chunk = filtered.slice(idx, idx + 40);
+                    const html = chunk.map(p => {
                         const trend = p.trending ? '<span style="color:#2ecc71; font-size:0.8rem; margin-left:4px;">▲</span>' : '';
                         const subInfo = p.type === 'skater' ? `• G ${p.g} • PPG ${p.ppg}` : `• G ${p.gp} • SV% ${p.sv}`;
-                        
-                        div.innerHTML = `
+                        return `
+                        <div class="card ${compareBasePlayer && compareBasePlayer.id === p.id ? 'comp-active' : ''}" onclick="handleCardClick('${p.id}')" style="--t-color:${p.col}">
                             <div class="rank-tag">RANK #${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
                             <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'" loading="lazy">
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
                                 <div><h3 style="margin:0; font-size:1rem;">${p.name}</h3><small>${subInfo}</small></div>
                                 <div style="margin-left:auto; text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}${trend}</b><br><small style="font-size:0.6rem;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
-                        `;
-                        fragment.appendChild(div);
-                    });
-                    
-                    grid.appendChild(fragment);
-                    index += chunkSize;
-                    
-                    if (index < filtered.length) {
-                        requestAnimationFrame(draw);
-                    }
+                        </div>`;
+                    }).join('');
+                    grid.insertAdjacentHTML('beforeend', html);
+                    idx += 40; if(idx < filtered.length) setTimeout(draw, 10);
                 }
                 draw();
             }
@@ -330,10 +303,8 @@ def nhl_dashboard_main():
                 document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${compareWith ? 'VS ' + compareWith.name : 'ANALYZING ' + currentMode.toUpperCase()}</div>`;
                 document.getElementById('modal').style.display = 'block'; drawRadar(p, compareWith);
             }
-            
             function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render(); }
             function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
-            
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
                 const getPts = (player) => {
@@ -354,3 +325,5 @@ def nhl_dashboard_main():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
+
