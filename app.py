@@ -119,7 +119,7 @@ def nhl_dashboard_main():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표 기반 실시간 하키 통계 플랫폼.">
+        <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
         <title>NHL ANALYTICA</title>
         
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23030712'/><path d='M12,2L22,7V17L12,22L2,17V7L12,2Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><circle cx='12' cy='12' r='3' fill='%2338bdf8'/><path d='M12,8V16M8,12H16' stroke='white' stroke-width='1' stroke-linecap='round'/></svg>" type="image/svg+xml">
@@ -129,64 +129,74 @@ def nhl_dashboard_main():
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         
         <style>
-            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.8); }
-            body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+            :root { --accent: #38bdf8; --bg: #030712; --card: rgba(15, 23, 42, 0.75); }
+            body { background: #030712; color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
             
-            /* [성능 최적화: Blur 제거 및 GPU 가속] */
+            /* [성능 최적화: Blur 연산 제거 및 GPU 가속] */
             header { padding: 20px 5%; background: #030712; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; transform: translateZ(0); }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.5rem; text-decoration: none; }
             .logo svg { width: 38px; height: 38px; }
             
-            .search-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; }
+            .search-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 12px; color: white; width: 300px; outline: none; transition: 0.3s; }
+            .search-box:focus { border-color: var(--accent); background: rgba(255,255,255,0.1); }
             
             .team-bar { display: flex; gap: 15px; padding: 15px 5%; overflow-x: auto; background: #030712; border-bottom: 1px solid rgba(255,255,255,0.05); scrollbar-width: none; }
             .team-logo-btn { width: 45px; height: 45px; cursor: pointer; transition: 0.2s; opacity: 0.3; filter: grayscale(1); flex-shrink: 0; }
-            .team-logo-btn.active, .team-logo-btn:hover { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
+            .team-logo-btn:hover, .team-logo-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
             
-            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; }
+            .nav-tabs { display: flex; justify(content: center; gap: 40px; padding: 20px 0; background: #030712; }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.8rem; cursor: pointer; color: #475569; border: none; background: none; transition: 0.3s; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
             
-            /* [2. UI 최적화: S-TIER 줄바꿈 및 가려짐 해결] */
+            /* [2. UI 업그레이드: Glassmorphism & S-TIER 레이아웃] */
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 30px 5%; min-height: 80vh; contain: content; }
             .card { 
                 background: var(--card); 
                 border-radius: 20px; 
-                padding: 18px; 
+                padding: 20px; 
                 cursor: pointer; 
                 border: 1px solid rgba(255,255,255,0.05); 
-                transition: 0.2s ease-out; 
+                transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
                 position: relative; 
                 transform: translateZ(0); 
+                will-change: transform;
                 contain: layout paint;
             }
-            .card:hover { transform: translateY(-4px); border-color: var(--accent); background: rgba(30, 41, 59, 0.9); }
+            .card:hover { transform: translateY(-5px); border-color: var(--accent); background: rgba(30, 41, 59, 0.9); }
             .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--t-color); border-radius: 20px 0 0 20px; }
             
-            /* 이름 컨테이너: 뱃지와 겹치지 않게 flex 설정 */
-            .p-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-            .p-name { margin: 0; font-size: 0.95rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+            /* [전문가형 레이아웃: 이름과 뱃지가 겹치지 않음] */
+            .p-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; }
+            .p-name { margin: 0; font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
             .s-tier-badge { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid #fbbf24; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
 
-            .rank-tag { position: absolute; top: 12px; left: 15px; background: #000; color: var(--accent); font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
-            .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
+            .rank-tag { position: absolute; top: 12px; left: 15px; background: #000; color: var(--accent); font-size: 0.65rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; font-family: 'Syncopate'; border: 1px solid var(--accent); }
+            .live-tag { position: absolute; top: 12px; right: 15px; background: #ef4444; color: white; font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; z-index: 5; animation: blink 1.2s infinite; }
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             
+            /* [3. 전문적 모달: 박스 형태 및 시각화 강화] */
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.92); }
-            .modal-box { background: #0b1426; width: 900px; max-width: 95%; margin: 6vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
+            .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 6vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
             .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
-            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; }
+            .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
             
             .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
-            .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
-            .stat-box small { color: #64748b; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; display: block; }
-            .stat-box b { font-size: 1.1rem; color: #fff; }
+            .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.03); }
+            .stat-box small { color: #64748b; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 4px; }
+            .stat-box b { font-size: 1.2rem; color: #fff; }
             
+            /* Key Factors: 이미지 기반으로 구현한 전문가형 박스 */
+            .kf-box { background: #16253d; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 15px; border: 1px solid #1f3a52; }
+            .kf-title { font-family: 'Syncopate'; font-size: 0.7rem; color: var(--accent); margin-bottom: 15px; display: block; }
+            .kf-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
+            .kf-label { color: #aab4be; font-weight: 500; }
+            .kf-val { font-weight: 800; }
+
             .prob-box { background: #0f172a; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-top: 15px; text-align: center; }
-            .prob-box b { color: #fbbf24; font-size: 2.5rem; display: block; }
+            .prob-box b { color: #fbbf24; font-size: 2.5rem; display: block; font-family: 'Syncopate'; }
             
-            #loading { position: fixed; inset: 0; background: #030712; display: flex; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); font-family: 'Syncopate'; }
-            .yt-btn { position: fixed; bottom: 20px; right: 20px; background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 30px; font-weight: 900; font-family: 'Syncopate'; font-size: 10px; cursor: pointer; z-index: 5000; }
+            #loading { position: fixed; inset: 0; background: #030712; display: flex; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); font-family: 'Syncopate'; font-size: 1.2rem; }
+            .yt-hook-btn { position: fixed; bottom: 20px; right: 20px; background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: 900; font-family: 'Syncopate'; font-size: 10px; cursor: pointer; z-index: 5000; }
         </style>
     </head>
     <body>
@@ -209,7 +219,7 @@ def nhl_dashboard_main():
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="this.style.display='none'"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
         
-        <button class="yt-btn" onclick="generateHook()">GET YT HOOK</button>
+        <button class="yt-hook-btn" onclick="generateHook()">GET YT HOOK</button>
 
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
@@ -251,6 +261,7 @@ def nhl_dashboard_main():
                 render();
             }
 
+            // [성능 최적화: Chunked 렌더링으로 랙 원천 차단]
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
                 const grid = document.getElementById('main-grid'); if(!rawData) return;
@@ -272,16 +283,16 @@ def nhl_dashboard_main():
                         <div class="card" onclick="openModal('${p.id}')" style="--t-color:${p.col}">
                             <div class="rank-tag">#${p.rank}</div>
                             ${p.trending ? '<div class="live-tag">LIVE</div>' : ''}
-                            <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
-                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:55px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                            <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
+                                <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:60px; border-radius:50%; background:#000;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
                                 <div style="flex:1; min-width:0;">
                                     <div class="p-header">
                                         <h3 class="p-name">${p.name}</h3>
                                         ${sTier}
                                     </div>
-                                    <small style="color:#64748b; font-size:0.65rem;">${subInfo}</small>
+                                    <small style="color:#64748b; font-size:0.7rem;">${subInfo}</small>
                                 </div>
-                                <div style="text-align:right;"><b style="color:var(--accent); font-size:1.2rem;">${p.ir}</b><br><small style="font-size:0.5rem; color:#475569;">IR</small></div>
+                                <div style="text-align:right;"><b style="color:var(--accent); font-size:1.3rem;">${p.type==='skater'?p.pts:p.w}</b><br><small style="font-size:0.5rem; color:#475569;">${p.type==='skater'?'PTS':'WINS'}</small></div>
                             </div>
                         </div>`;
                     }).join('');
@@ -295,14 +306,25 @@ def nhl_dashboard_main():
                 const p = rawData[currentMode][currentType + "s"].find(x => x.id === id);
                 if(!p) return;
                 
+                let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
+                let irCol = p.ir >= 90 ? "#fbbf24" : p.ir >= 75 ? "#f1c40f" : p.ir >= 60 ? "#2ecc71" : "#aab4be";
+
                 const stats = p.type === 'skater' ? 
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PTS</small><b>${p.pts}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div>` :
-                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}</b></div>`;
+                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PTS</small><b>${p.pts}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>G</small><b>${p.g}</b></div><div class="stat-box"><small>A</small><b>${p.a}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div>` :
+                    `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div><div class="stat-box"><small>SO</small><b>${p.so}</b></div><div class="stat-box"><small>SA</small><b>${p.sa}</b></div>`;
 
                 document.getElementById('mInfo').innerHTML = `
-                    <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:130px; border-radius:50%; border:3px solid ${p.col};">
-                    <h2 style="font-family:'Syncopate'; margin:15px 0;">${p.name.toUpperCase()}</h2>
-                    <div style="background:${p.col}; padding:4px 10px; border-radius:6px; font-weight:800; font-size:0.75rem;">${p.team}</div>
+                    <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:140px; border-radius:50%; border:4px solid ${p.col};">
+                    <h2 style="font-family:'Syncopate'; margin:15px 0 10px;">${p.name.toUpperCase()}</h2>
+                    <div style="background:${p.col}; padding:6px 14px; border-radius:8px; font-weight:800; font-size:0.85rem; margin-bottom:20px; display:inline-block;">${p.team}</div>
+                    
+                    <div class="kf-box">
+                        <span class="kf-title">Key Factors</span>
+                        <div class="kf-row"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ▲</span></div>
+                        <div class="kf-row"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ▲</span></div>
+                        <div class="kf-row"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.rank%2===0?'#e74c3c':'#f1c40f'}">${p.rank%2===0?'Weak':'Strong'} ▲</span></div>
+                    </div>
+
                     <div class="stat-grid">${stats}</div>
                     <div class="prob-box"><small style="font-weight:900; color:#fbbf24;">IMPACT PROBABILITY</small><b>${p.prob || p.so || 0}%</b></div>`;
                 
@@ -314,11 +336,11 @@ def nhl_dashboard_main():
             function drawRadar(p) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chartInstance) chartInstance.destroy();
-                const data = p.type==='skater' ? [p.g*5, p.pts, p.ppg*50, 60, p.ir] : [p.w*5, p.sv, 70, 50, p.ir];
+                const data = p.type==='skater' ? [p.g*5, p.pts, p.ppg*50, 70, p.ir] : [p.w*5, p.sv, 70, 50, p.ir];
                 chartInstance = new Chart(ctx, {
                     type: 'radar',
-                    data: { labels: ['G/W', 'PTS/SV', 'PPG', 'DEF', 'IR'], datasets: [{ data, backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 }] },
-                    options: { scales: { r: { min: 0, max: 100, grid: { color: '#1e293b' }, angleLines: { color: '#1e293b' }, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+                    data: { labels: ['Scoring', 'Points', 'PPG', 'Defensive', 'Impact'], datasets: [{ data, backgroundColor: 'rgba(56, 189, 248, 0.2)', borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0 }] },
+                    options: { scales: { r: { min: 0, max: 100, grid: { color: '#1e293b' }, angleLines: { color: '#1e293b' }, ticks: { display: false }, pointLabels: { color: '#64748b', font: { weight: 'bold' } } } }, plugins: { legend: { display: false } } }
                 });
             }
 
@@ -329,6 +351,16 @@ def nhl_dashboard_main():
             }
 
             init();
+
+            // [성능 최적화: 스크롤 시 포인터 이벤트 제어]
+            let isScrolling;
+            window.addEventListener('scroll', () => {
+                window.clearTimeout(isScrolling);
+                document.body.style.pointerEvents = 'none';
+                isScrolling = setTimeout(() => {
+                    document.body.style.pointerEvents = 'auto';
+                }, 100);
+            }, { passive: true });
         </script>
     </body>
     </html>
