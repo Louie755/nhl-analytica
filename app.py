@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# [기본 데이터 로직 보존]
+# [기본 데이터 로직 및 팀 컬러 보존]
 TEAM_MAP = {"ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames", "CAR": "Carolina Hurricanes", "CHI": "Chicago Blackhawks", "COL": "Colorado Avalanche", "CBJ": "Columbus Blue Jackets", "DAL": "Dallas Stars", "DET": "Detroit Red Wings", "EDM": "Edmonton Oilers", "FLA": "Florida Panthers", "LAK": "Los Angeles Kings", "MIN": "Minnesota Wild", "MTL": "Montreal Canadiens", "NSH": "Nashville Predators", "NJD": "New Jersey Devils", "NYI": "New York Islanders", "NYR": "New York Rangers", "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "PIT": "Pittsburgh Penguins", "SJS": "San Jose Sharks", "SEA": "Seattle Kraken", "STL": "St Louis Blues", "TBL": "Tampa Bay Lightning", "TOR": "Toronto Maple Leafs", "UTA": "Utah Hockey Club", "VAN": "Vancouver Canucks", "VGK": "Vegas Golden Knights", "WSH": "Washington Capitals", "WPG": "Winnipeg Jets"}
 TEAM_COLORS = {"ANA": "#F47A38", "BOS": "#FFB81C", "BUF": "#002654", "CGY": "#C8102E", "CAR": "#CE1126", "CHI": "#CF0A2C", "COL": "#6F263D", "CBJ": "#002654", "DAL": "#006847", "DET": "#CE1126", "EDM": "#FF4C00", "FLA": "#041E42", "LAK": "#111111", "MIN": "#154734", "MTL": "#AF1E2D", "NSH": "#FFB81C", "NJD": "#CE1126", "NYI": "#00539B", "NYR": "#0038A8", "OTT": "#C8102E", "PHI": "#F74902", "PIT": "#FCB514", "SJS": "#006D75", "SEA": "#001628", "STL": "#002F87", "TBL": "#002868", "TOR": "#00205B", "UTA": "#71AFE2", "VAN": "#00205B", "VGK": "#B4975A", "WSH": "#041E42", "WPG": "#004C97"}
 
@@ -36,16 +36,6 @@ def get_today_scorers():
                 if sid: scorer_ids.add(str(sid))
     except: pass
     return scorer_ids
-
-@app.route('/sitemap.xml')
-def sitemap_xml_route():
-    host_root = request.host_url
-    now_date = datetime.now().strftime('%Y-%m-%d')
-    sitemap_data = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-        <url><loc>{host_root}</loc><lastmod>{now_date}</lastmod><priority>1.0</priority></url>
-    </urlset>"""
-    return Response(sitemap_data, mimetype='application/xml')
 
 @app.route('/api/data')
 def get_nhl_data():
@@ -119,7 +109,7 @@ def nhl_dashboard_main():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NHL ANALYTICA | PRO EDITION</title>
+        <title>NHL ANALYTICA</title>
         
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%23030712'/><path d='M12,2L22,7V17L12,22L2,17V7L12,2Z' fill='none' stroke='%2338bdf8' stroke-width='1.5'/><circle cx='12' cy='12' r='3' fill='%2338bdf8'/></svg>" type="image/svg+xml">
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -129,30 +119,26 @@ def nhl_dashboard_main():
             :root { --accent: #38bdf8; --bg: #030712; --card-bg: rgba(15, 23, 42, 0.7); }
             body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
 
-            /* [헤더] */
             header { 
-                padding: 15px 5%; background: rgba(3, 7, 18, 0.9); border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                padding: 15px 5%; background: rgba(3, 7, 18, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000;
-                backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             }
             .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syncopate'; color: var(--accent); font-size: 1.3rem; text-decoration: none; }
-            .logo svg { width: 32px; height: 32px; }
+            .logo svg { width: 34px; height: 34px; }
             .search-box { 
                 background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); 
-                padding: 10px 18px; border-radius: 10px; color: white; width: 280px; outline: none; transition: 0.3s;
+                padding: 10px 18px; border-radius: 10px; color: white; width: 280px; outline: none;
             }
-            .search-box:focus { border-color: var(--accent); width: 320px; }
 
-            /* [팀 바] */
-            .team-bar { display: flex; gap: 12px; padding: 12px 5%; overflow-x: auto; background: #030712; scrollbar-width: none; }
+            .team-bar { display: flex; gap: 12px; padding: 12px 5%; overflow-x: auto; scrollbar-width: none; }
             .team-logo-btn { width: 40px; height: 40px; cursor: pointer; transition: 0.2s; opacity: 0.3; filter: grayscale(1); flex-shrink: 0; }
             .team-logo-btn.active, .team-logo-btn:hover { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
 
-            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 20px 0; }
+            .nav-tabs { display: flex; justify-content: center; gap: 40px; padding: 15px 0; }
             .tab-btn { font-family: 'Syncopate'; font-size: 0.75rem; cursor: pointer; color: #475569; border: none; background: none; transition: 0.3s; }
             .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
 
-            /* [그리드 & 카드: S-TIER 줄바꿈 해결] */
+            /* [사용자 요청 포맷 그대로 유지] */
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px 5% 50px; contain: content; }
             .card { 
                 background: var(--card-bg); border-radius: 20px; padding: 20px; cursor: pointer;
@@ -176,7 +162,7 @@ def nhl_dashboard_main():
             .ir-display b { font-size: 1.4rem; color: var(--accent); font-family: 'Syncopate'; display: block; line-height: 1; }
             .ir-display small { font-size: 0.5rem; color: #64748b; font-weight: 800; }
 
-            /* [모달 & 차트: 튀어나가는 현상 해결] */
+            /* [사용자 요청 포맷 그대로 유지: 모달 레이아웃] */
             .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
             .modal-box { 
                 background: #0b1426; width: 950px; max-width: 95%; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1);
@@ -196,12 +182,15 @@ def nhl_dashboard_main():
             .stat-box small { color: #64748b; font-size: 0.55rem; font-weight: 800; display: block; }
             .stat-box b { font-size: 1.1rem; color: #fff; }
 
+            .prob-box { background: #0f172a; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-top: 15px; text-align: center; }
+            .prob-box b { color: #fbbf24; font-size: 2rem; display: block; font-family: 'Syncopate'; }
+
             #loading { position: fixed; inset: 0; background: #030712; display: flex; justify-content: center; align-items: center; z-index: 9999; color: var(--accent); font-family: 'Syncopate'; font-size: 1rem; }
             canvas#radar { width: 100% !important; height: auto !important; max-width: 400px; }
         </style>
     </head>
     <body>
-        <div id="loading">LOADING_ANALYTICS...</div>
+        <div id="loading">SYNCING_DATA...</div>
         
         <header>
             <a href="/" class="logo">
@@ -263,7 +252,7 @@ def nhl_dashboard_main():
                 render();
             }
 
-            // [성능 최적화: 가상 렌더링]
+            // [성능 최적화: 가상 렌더링으로 랙 제거]
             function render() {
                 const query = document.getElementById('pSearch').value.toLowerCase();
                 const grid = document.getElementById('main-grid');
@@ -323,37 +312,27 @@ def nhl_dashboard_main():
                         <div class="kf-row"><span class="kf-label">Recent Scoring</span><span class="kf-val" style="color:${p.ppg>=0.8?'#ef4444':'#38bdf8'}">${p.ppg>=0.8?'HOT':'STABLE'}</span></div>
                     </div>
 
-                    <div class="stat-grid">${stats}</div>`;
+                    <div class="stat-grid">${stats}</div>
+                    <div class="prob-box"><small style="font-weight:900; color:#fbbf24;">EXPECTED IMPACT PROBABILITY</small><b>${p.prob || p.so || 0}%</b></div>`;
                 
                 document.getElementById('mRight').innerHTML = `<canvas id="radar"></canvas>`;
                 document.getElementById('modal').style.display = 'flex';
                 drawRadar(p);
             }
 
-            // [차트 업그레이드: 정규화 로직 추가하여 튀어나가는 현상 방지]
+            // [그래프 수정: 튀어나가지 않도록 정규화 및 고정 눈금 적용]
             function drawRadar(p) {
                 const ctx = document.getElementById('radar').getContext('2d');
                 if(chart) chart.destroy();
 
-                // 튀어나가지 않도록 데이터를 0-100 사이로 정규화
                 const normalize = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
-                
                 const labels = p.type === 'skater' ? ['GOALS', 'POINTS', 'PPG', 'DEFENSE', 'IMPACT'] : ['WINS', 'SV%', 'GAA', 'SHUTOUT', 'IMPACT'];
                 
                 const skaterVals = [
-                    normalize(p.g, 60),    // 시즌 60골 기준
-                    normalize(p.pts, 140), // 시즌 140포인트 기준
-                    normalize(p.ppg, 1.8), // 1.8 PPG 기준
-                    normalize(p.pm + 30, 60), // +/- 60 기준
-                    p.ir                   // IR은 원래 0-100
+                    normalize(p.g, 60), normalize(p.pts, 140), normalize(p.ppg, 1.8), normalize(p.pm + 30, 60), p.ir
                 ];
-                
                 const goalieVals = [
-                    normalize(p.w, 45),    // 45승 기준
-                    normalize(p.sv - 85, 10), // SV% 85-95 기준
-                    normalize(4.5 - p.gaa, 2.5), // GAA 2.0-4.5 기준
-                    normalize(p.so, 8),    // 8 셧아웃 기준
-                    p.ir
+                    normalize(p.w, 45), normalize(p.sv - 85, 10), normalize(4.5 - p.gaa, 2.5), normalize(p.so, 8), p.ir
                 ];
 
                 chart = new Chart(ctx, {
@@ -372,7 +351,7 @@ def nhl_dashboard_main():
                         scales: {
                             r: {
                                 min: 0,
-                                max: 100, // 눈금을 100으로 고정하여 튀어나가기 방지
+                                max: 100, // 눈금을 100으로 고정하여 튀어나가기 원천 방지
                                 beginAtZero: true,
                                 grid: { color: 'rgba(255,255,255,0.05)' },
                                 angleLines: { color: 'rgba(255,255,255,0.05)' },
