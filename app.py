@@ -1,5 +1,5 @@
 import pandas as pd
-from flask import Flask, render_template_string, jsonify, request, Response
+from flask import Flask, render_template_string, jsonify, request, Response, url_for
 import requests
 import os
 from datetime import datetime
@@ -51,10 +51,7 @@ def sitemap_xml_route():
 def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
-    
-    # [핵심 수정] 시즌을 20252026으로 수동 고정하여 API가 빈 데이터를 주는 현상 방지
     season = "20252026"
-    
     s_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
     s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
@@ -62,7 +59,6 @@ def get_nhl_data():
     today_scorers = get_today_scorers()
 
     def process_skaters(raw, min_gp):
-        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -70,11 +66,9 @@ def get_nhl_data():
             if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
-            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
-
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
                 "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, 
@@ -89,7 +83,6 @@ def get_nhl_data():
         return processed
 
     def process_goalies(raw, min_gp):
-        # [수정] 데이터가 비어있을 경우 에러 없이 빈 리스트 반환
         if not raw: return []
         processed = []
         for p in raw:
@@ -98,11 +91,9 @@ def get_nhl_data():
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
-            
             raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
             teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
             main_abbr = teams_list[-1] if teams_list else ""
-
             processed.append({
                 "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", 
                 "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, 
@@ -127,13 +118,14 @@ def nhl_dashboard_main():
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
         <title>NHL ANALYTICA</title>
         
-        <link rel="shortcut icon" href="https://raw.githubusercontent.com/louiesuh/nhlanalytica/main/static/favicon.png">
-        <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/louiesuh/nhlanalytica/main/static/favicon.png">
-        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/louiesuh/nhlanalytica/main/static/favicon.png">
-        
+        <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+        <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+        <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.png') }}">
+
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
         <style>
@@ -329,5 +321,3 @@ def nhl_dashboard_main():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
-
-
