@@ -175,6 +175,9 @@ def nhl_dashboard_main():
             .ir-formula { background: #16253d; border: 1px solid #1f3a52; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.85rem; color: var(--accent); margin: 15px 0; line-height: 1.8; }
             .ir-grade-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
             .ir-grade-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+            /* Back to top */
+            .back-to-top { position: fixed; bottom: 30px; right: 30px; background: var(--accent); color: #000; border: none; width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 999; box-shadow: 0 4px 15px rgba(56,189,248,0.4); transition: 0.3s; }
+            .back-to-top:hover { background: #fff; transform: translateY(-3px); }
             /* Footer */
             footer { border-top: 1px solid rgba(255,255,255,0.07); padding: 30px 5%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 40px; }
             .footer-left { font-family: 'Syncopate'; color: var(--accent); font-size: 0.75rem; }
@@ -207,6 +210,8 @@ def nhl_dashboard_main():
                 .logo { font-size: 1rem; }
                 .logo svg { width: 28px; height: 28px; }
                 .search-box { width: 100%; box-sizing: border-box; padding: 10px 14px; font-size: 0.9rem; }
+                .footer-yt { font-size: 0.7rem; padding: 6px 10px; }
+                .footer-yt svg { width: 14px; height: 14px; }
                 .nav-tabs { gap: 18px; padding: 14px 0; flex-wrap: wrap; justify-content: center; }
                 .tab-btn { font-size: 0.7rem; }
                 .grid { grid-template-columns: 1fr; padding: 16px 4%; gap: 14px; }
@@ -230,6 +235,10 @@ def nhl_dashboard_main():
                 <span>NHL ANALYTICA</span>
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
+            <a href="https://www.youtube.com/@nhl_analytica" target="_blank" class="footer-yt">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                WATCH ON YOUTUBE
+            </a>
         </header>
         <!-- IR About Modal -->
         <div id="ir-modal" class="ir-modal" onclick="closeIRModal()">
@@ -305,11 +314,8 @@ def nhl_dashboard_main():
                 NHL ANALYTICA
                 <span>© 2025 Louie Suh · Proprietary IR Metric · Data via NHL Stats API</span>
             </div>
-            <a href="https://www.youtube.com/@nhl_analytica" target="_blank" class="footer-yt">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                WATCH ON YOUTUBE
-            </a>
         </footer>
+        <button class="back-to-top" id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
         <script>
             let rawData = null; let currentMode = 'regular'; let currentType = 'skater'; 
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
@@ -529,6 +535,10 @@ def nhl_dashboard_main():
                 else datasets.push({ label: 'Avg', data: [50, 50, 50, 50, 50], backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 });
                 chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
             }
+            // Back to top
+            const btt = document.getElementById('back-to-top');
+            window.addEventListener('scroll', () => { btt.style.display = window.scrollY > 400 ? 'flex' : 'none'; });
+
             init();
         </script>
     </body>
