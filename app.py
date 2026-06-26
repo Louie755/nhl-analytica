@@ -112,6 +112,7 @@ def nhl_dashboard_main():
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
         
         <title>NHL ANALYTICA</title>
@@ -166,6 +167,32 @@ def nhl_dashboard_main():
             .comp-info-text { position: absolute; bottom: 40px; font-size: 0.75rem; color: #aab4be; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
             .divider { width: 1px; height: 15px; background: rgba(255,255,255,0.1); align-self: center; }
             .rank-info { font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+            /* IR About Modal */
+            .ir-about-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: #aab4be; font-size: 0.7rem; font-family: 'Syncopate'; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+            .ir-about-btn:hover { border-color: var(--accent); color: var(--accent); }
+            .ir-modal { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(2,6,23,0.97); backdrop-filter:blur(10px); }
+            .ir-modal-box { background: #0b1426; width: 600px; max-width: 92%; margin: 10vh auto; border-radius: 25px; border: 1px solid #1f3a52; padding: 40px; overflow-y: auto; max-height: 80vh; }
+            .ir-formula { background: #16253d; border: 1px solid #1f3a52; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.85rem; color: var(--accent); margin: 15px 0; line-height: 1.8; }
+            .ir-grade-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+            .ir-grade-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+            /* Mobile responsive */
+            @media (max-width: 768px) {
+                header { padding: 14px 4%; flex-wrap: wrap; gap: 10px; }
+                .logo { font-size: 1rem; }
+                .logo svg { width: 28px; height: 28px; }
+                .search-box { width: 100%; box-sizing: border-box; padding: 10px 14px; font-size: 0.9rem; }
+                .nav-tabs { gap: 18px; padding: 14px 0; flex-wrap: wrap; justify-content: center; }
+                .tab-btn { font-size: 0.7rem; }
+                .grid { grid-template-columns: 1fr; padding: 16px 4%; gap: 14px; }
+                .modal-box { grid-template-columns: 1fr; width: 96%; margin: 4vh auto; border-radius: 18px; }
+                .m-left { padding: 24px 20px; max-height: none; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+                .m-right { padding: 24px 20px; min-height: 280px; }
+                .m-left h2 { font-size: 1.2rem !important; }
+                .comp-btn { top: 16px; right: 16px; padding: 8px 12px; font-size: 0.65rem; }
+                .comp-info-text { bottom: 12px; font-size: 0.65rem; }
+                .stat-grid { grid-template-columns: repeat(3, 1fr); }
+                .ir-modal-box { padding: 24px 20px; margin: 6vh auto; }
+            }
         </style>
     </head>
     <body>
@@ -177,6 +204,26 @@ def nhl_dashboard_main():
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
         </header>
+        <!-- IR About Modal -->
+        <div id="ir-modal" class="ir-modal" onclick="closeIRModal()">
+            <div class="ir-modal-box" onclick="event.stopPropagation()">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <span style="font-family:'Syncopate'; color:var(--accent); font-size:1rem;">IMPACT RATING (IR)</span>
+                    <button onclick="closeIRModal()" style="background:none; border:none; color:#aab4be; font-size:1.4rem; cursor:pointer;">✕</button>
+                </div>
+                <p style="color:#aab4be; font-size:0.9rem; line-height:1.7; margin-bottom:20px;">Impact Rating (IR) is a proprietary composite metric developed by NHL Analytica to measure a player's overall contribution beyond raw counting stats. It combines scoring efficiency, shot quality, puck possession impact, and durability into a single score from 0–99.9.</p>
+                <div style="font-family:'Syncopate'; font-size:0.7rem; color:var(--accent); margin-bottom:10px;">SKATER FORMULA</div>
+                <div class="ir-formula">IR = (PPG × 40)<br>   + (PTS/Shots × 25)<br>   + (max(0, PM+10) / 2)<br>   + (GP / 10)<br><br>Capped at 99.9</div>
+                <div style="font-family:'Syncopate'; font-size:0.7rem; color:var(--accent); margin-bottom:10px; margin-top:20px;">GOALIE FORMULA</div>
+                <div class="ir-formula">IR = (W/GP × 40)<br>   + ((SV% − 85) × 4)<br>   + ((5 − GAA) × 2)<br><br>Capped at 99.9</div>
+                <div style="font-family:'Syncopate'; font-size:0.7rem; color:var(--accent); margin: 20px 0 12px;">IR GRADES</div>
+                <div class="ir-grade-row"><div class="ir-grade-dot" style="background:#ff6b6b"></div><span style="color:#ff6b6b; font-weight:800;">Elite</span><span style="color:#aab4be; font-size:0.85rem; margin-left:4px;">— IR ≥ 90</span></div>
+                <div class="ir-grade-row"><div class="ir-grade-dot" style="background:#f1c40f"></div><span style="color:#f1c40f; font-weight:800;">Above Average</span><span style="color:#aab4be; font-size:0.85rem; margin-left:4px;">— IR 75–89</span></div>
+                <div class="ir-grade-row"><div class="ir-grade-dot" style="background:#2ecc71"></div><span style="color:#2ecc71; font-weight:800;">Average</span><span style="color:#aab4be; font-size:0.85rem; margin-left:4px;">— IR 60–74</span></div>
+                <div class="ir-grade-row"><div class="ir-grade-dot" style="background:#aab4be"></div><span style="color:#aab4be; font-weight:800;">Below Average</span><span style="color:#aab4be; font-size:0.85rem; margin-left:4px;">— IR &lt; 60</span></div>
+                <p style="color:#637381; font-size:0.75rem; margin-top:24px; line-height:1.6;">IR is calculated using full-season regular season or playoff data from the NHL Stats API. Minimum games played thresholds apply to filter out small sample sizes.</p>
+            </div>
+        </div>
         <div class="team-bar" id="team-bar"></div>
         <div class="nav-tabs">
             <button class="tab-btn active" id="regular-mode" onclick="switchMode('regular')">REGULAR</button>
@@ -184,6 +231,8 @@ def nhl_dashboard_main():
             <div class="divider"></div>
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
+            <div class="divider"></div>
+            <button class="ir-about-btn" onclick="document.getElementById('ir-modal').style.display='block'">WHAT IS IR?</button>
         </div>
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
         <div class="grid" id="main-grid"></div>
@@ -287,7 +336,7 @@ def nhl_dashboard_main():
                 const p = data.find(x => x.id === id); if(!p) return;
                 let irGrade = p.ir >= 90 ? "Elite" : p.ir >= 75 ? "Above Average" : p.ir >= 60 ? "Average" : "Below Average";
                 let irCol = p.ir >= 90 ? "#ff6b6b" : p.ir >= 75 ? "#f1c40f" : p.ir >= 60 ? "#2ecc71" : "#aab4be";
-                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ▲</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ▲</span></div><div class="kf-item"><span class="kf-label">Opponent Defense</span><span class="kf-val" style="color:${p.id%2===0?'#e74c3c':'#f1c40f'}">${p.id%2===0?'Weak':'Strong'} ▲</span></div>`;
+                const kfHtml = `<div class="kf-item"><span class="kf-label">Recent Form</span><span class="kf-val" style="color:${p.ppg>=0.7?'#ff6b6b':'#38bdf8'}">${p.ppg>=0.7?'Hot':'Cold'} ▲</span></div><div class="kf-item"><span class="kf-label">Impact Rating</span><span class="kf-val" style="color:${irCol}">${irGrade} ▲</span></div><div class="kf-item"><span class="kf-label">Shot Efficiency</span><span class="kf-val" style="color:${p.type==='skater'?(p.pts/Math.max(1,p.sh))>=0.18?'#2ecc71':'#f1c40f':'#aab4be'}">${p.type==='skater'?((p.pts/Math.max(1,p.sh))>=0.18?'High ▲':'Moderate ▲'):'N/A'}</span></div>`;
                 let statsHtml = p.type === 'skater' ? `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>PPG</small><b>${p.ppg}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>+/-</small><b>${p.pm}</b></div><div class="stat-box"><small>GOALS</small><b>${p.g}</b></div>` : `<div class="stat-box"><small>GP</small><b>${p.gp}</b></div><div class="stat-box"><small>WINS</small><b>${p.w}</b></div><div class="stat-box"><small>IR SCORE</small><b style="color:var(--accent)">${p.ir}</b></div><div class="stat-box"><small>SV%</small><b>${p.sv}%</b></div><div class="stat-box"><small>GAA</small><b>${p.gaa}</b></div>`;
                 
                 document.getElementById('mInfo').innerHTML = `<div style="font-size:0.7rem; color:var(--accent); font-weight:900; margin-bottom:10px; font-family:'Syncopate';">LEAGUE RANK #${p.rank}</div><img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:150px; border-radius:50%; border:4px solid ${p.col};"><h2 style="font-family:'Syncopate'; margin:15px 0 10px; font-size:1.8rem;">${p.name.toUpperCase()}</h2><div style="background:${p.col}; color:#ffffff; padding: 6px 14px; border-radius: 8px; font-weight:800; font-size:0.85rem; letter-spacing: 1px; margin-bottom:20px; display:inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">${p.team.toUpperCase()}</div><div class="stat-grid">${statsHtml}</div><div class="kf-container"><div class="kf-title">Key Factors</div>${kfHtml}</div><div class="prob-box"><small style="color:#fbbf24; font-weight:800;">${p.type==='skater'?'GOAL PROBABILITY':'SHUTOUTS'}</small><b>${p.type==='skater'?p.prob+'%':p.so}</b></div>`;
@@ -298,6 +347,7 @@ def nhl_dashboard_main():
             }
             function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render(); }
             function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
+            function closeIRModal() { document.getElementById('ir-modal').style.display = 'none'; }
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
                 const getPts = (player) => {
