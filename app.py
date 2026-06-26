@@ -232,7 +232,7 @@ def nhl_dashboard_main():
             <button class="tab-btn active" id="skater-tab" onclick="switchType('skater')">SKATERS</button>
             <button class="tab-btn" id="goalie-tab" onclick="switchType('goalie')">GOALIES</button>
             <div class="divider"></div>
-            <button class="ir-about-btn" onclick="document.getElementById('ir-modal').style.display='block'">WHAT IS IR?</button>
+            <button class="ir-about-btn" onclick="document.getElementById('ir-modal').style.display='block'; document.body.style.overflow='hidden'">WHAT IS IR?</button>
         </div>
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
         <div class="grid" id="main-grid"></div>
@@ -343,11 +343,11 @@ def nhl_dashboard_main():
                 
                 const compBtnHtml = compareWith ? '' : `<button class="comp-btn" onclick="startCompare('${p.id}')">COMPARE</button>`;
                 document.getElementById('mRight').innerHTML = `${compBtnHtml}<canvas id="radar"></canvas><div class="comp-info-text">${compareWith ? 'VS ' + compareWith.name : 'ANALYZING ' + currentMode.toUpperCase()}</div>`;
-                document.getElementById('modal').style.display = 'block'; drawRadar(p, compareWith);
+                document.getElementById('modal').style.display = 'block'; document.body.style.overflow = 'hidden'; drawRadar(p, compareWith);
             }
-            function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; render(); }
-            function closeModal() { document.getElementById('modal').style.display = 'none'; compareBasePlayer = null; render(); }
-            function closeIRModal() { document.getElementById('ir-modal').style.display = 'none'; }
+            function startCompare(id) { const data = rawData[currentMode][currentType + "s"]; compareBasePlayer = data.find(x => x.id === id); document.getElementById('modal').style.display = 'none'; document.body.style.overflow = ''; render(); }
+            function closeModal() { document.getElementById('modal').style.display = 'none'; document.body.style.overflow = ''; compareBasePlayer = null; render(); }
+            function closeIRModal() { document.getElementById('ir-modal').style.display = 'none'; document.body.style.overflow = ''; }
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
                 const getPts = (player) => {
