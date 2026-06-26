@@ -709,6 +709,12 @@ def nhl_dashboard_main():
                     clearTimeout(slowTimer);
                     rawData = await res.json();
                     lastUpdated = new Date();
+                    // Check if we actually got data
+                    const hasData = rawData?.regular?.skaters?.length > 0 || rawData?.regular?.goalies?.length > 0;
+                    if (!hasData) {
+                        document.getElementById('loading').innerHTML = '<h1 style="font-size:1.2rem">NHL API is temporarily unavailable</h1><p style="color:#64748b;margin:10px 0 20px;">Stats are refreshed automatically. Check back in a few minutes.</p><button onclick="location.reload()" style="background:var(--accent);color:#000;border:none;padding:10px 24px;border-radius:10px;font-weight:900;cursor:pointer;font-size:1rem;">TRY AGAIN</button>';
+                        return;
+                    }
                     document.getElementById('loading').style.display = 'none';
                     buildTeamBar(); render();
                     handleURLParams();
@@ -721,18 +727,26 @@ def nhl_dashboard_main():
 
             async function refreshData() {
                 const el = document.getElementById('last-updated');
-                el.textContent = '⟳ REFRESHING ROSTER DATA...';
-                el.classList.add('refreshing');
+                if (el) { el.textContent = '⟳ REFRESHING ROSTER DATA...'; el.classList.add('refreshing'); }
                 try {
                     const res = await fetch('/api/data?t=' + Date.now());
-                    rawData = await res.json();
-                    lastUpdated = new Date();
-                    el.classList.remove('refreshing');
-                    updateLastUpdatedLabel();
-                    render();
+                    const newData = await res.json();
+                    const hasData = newData?.regular?.skaters?.length > 0;
+                    if (hasData) {
+                        rawData = newData;
+                        lastUpdated = new Date();
+                        // If we were showing the error screen, recover
+                        if (document.getElementById('loading').style.display !== 'none') {
+                            document.getElementById('loading').style.display = 'none';
+                            buildTeamBar(); render();
+                        }
+                        if (el) { el.classList.remove('refreshing'); updateLastUpdatedLabel(); }
+                        render();
+                    } else {
+                        if (el) { el.classList.remove('refreshing'); el.textContent = 'NHL API UNAVAILABLE · RETRYING...'; }
+                    }
                 } catch (e) {
-                    el.classList.remove('refreshing');
-                    el.textContent = 'REFRESH FAILED · RETRYING SOON';
+                    if (el) { el.classList.remove('refreshing'); el.textContent = 'REFRESH FAILED · RETRYING SOON'; }
                 }
             }
 
