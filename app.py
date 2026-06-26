@@ -28,6 +28,63 @@ def fetch_nhl_safe(url, season, sort_prop, game_type=2):
         except: break
     return all_data
 
+def fetch_skaters_web(season, game_type=2, limit=200):
+    """Fetch skater stats from the newer api-web.nhle.com endpoint."""
+    try:
+        url = f"https://api-web.nhle.com/v1/skater-stats-leaders/{season}/{game_type}?categories=points,goals,assists,plusMinus&limit={limit}"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        # Flatten the categories into per-player records
+        players = {}
+        for cat, entries in data.items():
+            if not isinstance(entries, list): continue
+            for e in entries:
+                pid = str(e.get('playerId', e.get('id', '')))
+                if not pid: continue
+                if pid not in players:
+                    players[pid] = {
+                        'playerId': pid,
+                        'skaterFullName': e.get('firstName', {}).get('default', '') + ' ' + e.get('lastName', {}).get('default', ''),
+                        'teamAbbrevs': e.get('teamAbbrev', {}).get('default', '') if isinstance(e.get('teamAbbrev'), dict) else e.get('teamAbbrev', ''),
+                        'positionCode': e.get('position', 'F'),
+                        'gamesPlayed': e.get('gamesPlayed', 0),
+                        'points': 0, 'goals': 0, 'assists': 0, 'plusMinus': 0, 'shots': 1
+                    }
+                if cat == 'points': players[pid]['points'] = e.get('value', 0)
+                elif cat == 'goals': players[pid]['goals'] = e.get('value', 0)
+                elif cat == 'assists': players[pid]['assists'] = e.get('value', 0)
+                elif cat == 'plusMinus': players[pid]['plusMinus'] = e.get('value', 0)
+        return list(players.values())
+    except: return []
+
+def fetch_goalies_web(season, game_type=2, limit=100):
+    """Fetch goalie stats from the newer api-web.nhle.com endpoint."""
+    try:
+        url = f"https://api-web.nhle.com/v1/goalie-stats-leaders/{season}/{game_type}?categories=wins,savePctg,goalsAgainstAverage,shutouts&limit={limit}"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        goalies = {}
+        for cat, entries in data.items():
+            if not isinstance(entries, list): continue
+            for e in entries:
+                pid = str(e.get('playerId', e.get('id', '')))
+                if not pid: continue
+                if pid not in goalies:
+                    goalies[pid] = {
+                        'playerId': pid,
+                        'goalieFullName': e.get('firstName', {}).get('default', '') + ' ' + e.get('lastName', {}).get('default', ''),
+                        'teamAbbrevs': e.get('teamAbbrev', {}).get('default', '') if isinstance(e.get('teamAbbrev'), dict) else e.get('teamAbbrev', ''),
+                        'gamesPlayed': e.get('gamesPlayed', 0),
+                        'wins': 0, 'savePct': 0.900, 'goalsAgainstAverage': 2.50, 'shutouts': 0,
+                        'shotsAgainst': 100, 'goalsAgainst': 10
+                    }
+                if cat == 'wins': goalies[pid]['wins'] = e.get('value', 0)
+                elif cat == 'savePctg': goalies[pid]['savePct'] = e.get('value', 0.900)
+                elif cat == 'goalsAgainstAverage': goalies[pid]['goalsAgainstAverage'] = e.get('value', 2.50)
+                elif cat == 'shutouts': goalies[pid]['shutouts'] = e.get('value', 0)
+        return list(goalies.values())
+    except: return []
+
 def get_today_scorers():
     scorer_ids = set()
     try:
@@ -331,9 +388,18 @@ def build_data(s_reg, s_ply, g_reg, g_ply, today_scorers, roster_map):
         for p in raw:
             gp = p.get('gamesPlayed', 0)
             if gp < min_gp: continue
-            ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
-            sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
-            gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
+            wins = p.get('wins', 0)
+            # Handle both old API (goalsAgainst/shotsAgainst) and new web API (savePct/goalsAgainstAverage)
+            if 'savePct' in p:
+                sv_val = round(p.get('savePct', 0.900) * 100, 2)
+                gaa = round(p.get('goalsAgainstAverage', 2.50), 2)
+                ga = round(gaa * gp)
+                sa = max(1, round(ga / max(0.001, 1 - p.get('savePct', 0.900))))
+            else:
+                ga, sa = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0))
+                sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
+                gaa = round(ga/gp, 2)
+            ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             pid = str(p.get('playerId'))
             if pid in roster_map:
                 main_abbr = roster_map[pid]
@@ -375,10 +441,22 @@ def refresh_data_cache():
             # July-Sept: offseason, use the season that just ended
             season = f"{now.year - 1}{now.year}"
 
-        def fetch_s_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
-        def fetch_s_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
-        def fetch_g_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
-        def fetch_g_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
+        def fetch_s_reg():
+            data = fetch_skaters_web(season, 2)
+            if not data: data = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
+            return data
+        def fetch_s_ply():
+            data = fetch_skaters_web(season, 3)
+            if not data: data = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
+            return data
+        def fetch_g_reg():
+            data = fetch_goalies_web(season, 2)
+            if not data: data = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
+            return data
+        def fetch_g_ply():
+            data = fetch_goalies_web(season, 3)
+            if not data: data = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
+            return data
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             f_sr = executor.submit(fetch_s_reg)
