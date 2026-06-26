@@ -192,15 +192,6 @@ def nhl_dashboard_main():
             .team-stat-card { background: #0f1f35; border: 1px solid #1f3a52; border-radius: 14px; padding: 16px; text-align: center; }
             .team-stat-card small { color: #637381; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; }
             .team-stat-card b { font-size: 1.4rem; display: block; margin-top: 6px; color: var(--accent); }
-            /* Dream Team */
-            .dream-modal { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(2,6,23,0.97); backdrop-filter:blur(10px); overflow-y:auto; }
-            .dream-modal-box { background: #0b1426; width: 800px; max-width: 94%; margin: 6vh auto; border-radius: 25px; border: 1px solid #1f3a52; padding: 36px; }
-            .dream-slot { display: flex; align-items: center; gap: 12px; background: #16253d; border: 1px dashed #1f3a52; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; transition: 0.3s; }
-            .dream-slot:hover { border-color: var(--accent); }
-            .dream-slot.filled { border-style: solid; border-color: rgba(56,189,248,0.4); }
-            .dream-slot img { width: 40px; height: 40px; border-radius: 50%; background: #000; }
-            .dream-score { background: linear-gradient(135deg, #0f1f35, #16253d); border: 1px solid var(--accent); border-radius: 16px; padding: 20px; text-align: center; margin-top: 20px; }
-            .dream-score b { font-size: 3rem; color: var(--accent); display: block; font-family: 'Syncopate'; }
             /* Trending IR Leaderboard */
             .trending-modal { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(2,6,23,0.97); backdrop-filter:blur(10px); }
             .trending-modal-box { background: #0b1426; width: 600px; max-width: 94%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; padding: 36px; overflow-y: auto; max-height: 84vh; }
@@ -228,7 +219,6 @@ def nhl_dashboard_main():
                 .stat-grid { grid-template-columns: repeat(3, 1fr); }
                 .ir-modal-box { padding: 24px 20px; margin: 6vh auto; }
                 footer { flex-direction: column; align-items: flex-start; }
-                .dream-modal-box { padding: 24px 16px; }
             }
         </style>
     </head>
@@ -271,7 +261,6 @@ def nhl_dashboard_main():
             <div class="divider"></div>
             <button class="ir-about-btn" onclick="document.getElementById('ir-modal').style.display='block'; document.body.style.overflow='hidden'">WHAT IS IR?</button>
             <button class="ir-about-btn" onclick="openTrending()">IR TOP 10</button>
-            <button class="ir-about-btn" onclick="openDreamTeam()">DREAM TEAM</button>
         </div>
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
         <div class="grid" id="main-grid"></div>
@@ -307,28 +296,6 @@ def nhl_dashboard_main():
                 <div id="trending-skaters"></div>
                 <div style="font-family:'Syncopate'; font-size:0.65rem; color:#64748b; margin: 18px 0 10px;">TOP GOALIES</div>
                 <div id="trending-goalies"></div>
-            </div>
-        </div>
-
-        <!-- Dream Team Modal -->
-        <div id="dream-modal" class="dream-modal" onclick="closeDreamTeam()">
-            <div class="dream-modal-box" onclick="event.stopPropagation()">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <span style="font-family:'Syncopate'; color:var(--accent); font-size:0.9rem;">DREAM TEAM BUILDER</span>
-                    <button onclick="closeDreamTeam()" style="background:none; border:none; color:#aab4be; font-size:1.4rem; cursor:pointer;">✕</button>
-                </div>
-                <p style="color:#64748b; font-size:0.75rem; margin-bottom:20px;">Click a slot to pick a player. Your team's combined IR score is calculated automatically.</p>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" id="dream-slots"></div>
-                <div class="dream-score" id="dream-score-box" style="display:none;">
-                    <div style="font-size:0.7rem; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">Combined Team IR</div>
-                    <b id="dream-total-ir">0</b>
-                    <div id="dream-grade" style="font-size:0.85rem; margin-top:8px;"></div>
-                </div>
-                <!-- Player picker inside dream team -->
-                <div id="dream-picker" style="display:none; margin-top:20px; background:#0f1f35; border-radius:14px; padding:16px;">
-                    <input id="dream-search" type="text" placeholder="Search player..." style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:white; padding:10px 14px; border-radius:10px; outline:none; margin-bottom:12px; font-size:0.9rem;" oninput="renderDreamPicker()">
-                    <div id="dream-picker-list" style="max-height:220px; overflow-y:auto;"></div>
-                </div>
             </div>
         </div>
 
@@ -551,74 +518,6 @@ def nhl_dashboard_main():
             }
             function closeTrending() { document.getElementById('trending-modal').style.display = 'none'; document.body.style.overflow = ''; }
 
-            // ── DREAM TEAM BUILDER ──
-            const DREAM_SLOTS = [
-                {pos:'LW', label:'Left Wing'}, {pos:'C', label:'Center'},
-                {pos:'RW', label:'Right Wing'}, {pos:'D', label:'Defense 1'},
-                {pos:'D', label:'Defense 2'}, {pos:'G', label:'Goalie'}
-            ];
-            let dreamTeam = new Array(6).fill(null);
-            let activeDreamSlot = null;
-
-            function openDreamTeam() {
-                renderDreamSlots();
-                document.getElementById('dream-modal').style.display = 'block';
-                document.body.style.overflow = 'hidden';
-            }
-            function closeDreamTeam() { document.getElementById('dream-modal').style.display = 'none'; document.body.style.overflow = ''; activeDreamSlot = null; document.getElementById('dream-picker').style.display = 'none'; }
-            function renderDreamSlots() {
-                document.getElementById('dream-slots').innerHTML = DREAM_SLOTS.map((s, i) => {
-                    const p = dreamTeam[i];
-                    return `<div class="dream-slot ${p?'filled':''}" onclick="activateDreamSlot(${i})">
-                        ${p ? `<img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'" style="width:40px;height:40px;border-radius:50%;background:#000">
-                        <div style="flex:1"><div style="font-weight:700;font-size:0.85rem;">${p.name}</div><div style="font-size:0.7rem;color:#64748b;">${p.team}</div></div>
-                        <div style="color:var(--accent);font-weight:900;">${p.ir}</div>` 
-                        : `<div style="width:40px;height:40px;border-radius:50%;background:#1f3a52;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#64748b;font-weight:900;">${s.pos}</div>
-                        <div style="color:#64748b;font-size:0.8rem;">${s.label}</div>`}
-                    </div>`;
-                }).join('');
-                updateDreamScore();
-            }
-            function activateDreamSlot(i) {
-                activeDreamSlot = i;
-                document.getElementById('dream-picker').style.display = 'block';
-                document.getElementById('dream-search').value = '';
-                renderDreamPicker();
-                document.getElementById('dream-search').focus();
-            }
-            function renderDreamPicker() {
-                if (!rawData || activeDreamSlot === null) return;
-                const query = document.getElementById('dream-search').value.toLowerCase();
-                const slot = DREAM_SLOTS[activeDreamSlot];
-                let pool = slot.pos === 'G' ? rawData[currentMode].goalies : rawData[currentMode].skaters;
-                if (slot.pos !== 'G' && slot.pos !== 'D') pool = pool.filter(p => p.pos === slot.pos || !slot.pos);
-                if (slot.pos === 'D') pool = pool.filter(p => p.pos === 'D');
-                pool = pool.filter(p => p.name.toLowerCase().includes(query)).slice(0, 30);
-                document.getElementById('dream-picker-list').innerHTML = pool.map(p => 
-                    `<div onclick="pickDreamPlayer('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='#1f3a52'" onmouseout="this.style.background='none'">
-                        <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'" style="width:32px;height:32px;border-radius:50%;background:#000">
-                        <div style="flex:1"><div style="font-weight:700;font-size:0.82rem;">${p.name}</div><div style="font-size:0.68rem;color:#64748b;">${p.team}</div></div>
-                        <div style="color:var(--accent);font-weight:900;font-size:0.9rem;">${p.ir} IR</div>
-                    </div>`
-                ).join('');
-            }
-            function pickDreamPlayer(id) {
-                if (activeDreamSlot === null || !rawData) return;
-                const slot = DREAM_SLOTS[activeDreamSlot];
-                const pool = slot.pos === 'G' ? rawData[currentMode].goalies : rawData[currentMode].skaters;
-                const p = pool.find(x => x.id === id);
-                if (p) { dreamTeam[activeDreamSlot] = p; activeDreamSlot = null; document.getElementById('dream-picker').style.display = 'none'; renderDreamSlots(); }
-            }
-            function updateDreamScore() {
-                const filled = dreamTeam.filter(Boolean);
-                if (filled.length === 0) { document.getElementById('dream-score-box').style.display = 'none'; return; }
-                const total = filled.reduce((s,p) => s + p.ir, 0);
-                const avg = (total / filled.length).toFixed(1);
-                const grade = avg >= 85 ? '🏆 Championship Contender' : avg >= 70 ? '⭐ Playoff Team' : avg >= 55 ? '📈 Bubble Team' : '🔄 Rebuilding';
-                document.getElementById('dream-score-box').style.display = 'block';
-                document.getElementById('dream-total-ir').textContent = avg;
-                document.getElementById('dream-grade').innerHTML = `<span style="color:#aab4be">${grade}</span> <span style="color:#64748b; font-size:0.75rem;">(${filled.length}/6 players)</span>`;
-            }
             function drawRadar(p, compareWith = null) {
                 const ctx = document.getElementById('radar').getContext('2d'); if(chartInstance) chartInstance.destroy();
                 const getPts = (player) => {
