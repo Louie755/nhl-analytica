@@ -3,6 +3,7 @@ from flask import Flask, render_template_string, jsonify, request, Response
 import requests
 import os
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 
@@ -27,8 +28,22 @@ def fetch_nhl_safe(url, season, sort_prop, game_type=2):
 
 _roster_cache = {"data": {}, "ts": 0}
 
+def fetch_team_roster(abbr):
+    try:
+        r = requests.get(f"https://api-web.nhle.com/v1/roster/{abbr}/current", timeout=6)
+        data = r.json()
+        result = {}
+        for group in ('forwards', 'defensemen', 'goalies'):
+            for player in data.get(group, []):
+                pid = str(player.get('id', ''))
+                if pid:
+                    result[pid] = abbr
+        return result
+    except:
+        return {}
+
 def get_current_roster_map():
-    """Fetch real-time current rosters for all 32 NHL teams and return a dict of {player_id: abbr}.
+    """Fetch real-time current rosters for all 32 NHL teams in parallel.
     Cached for 10 minutes to avoid hammering the API on every request."""
     global _roster_cache
     now_ts = datetime.now().timestamp()
@@ -36,17 +51,10 @@ def get_current_roster_map():
         return _roster_cache["data"]
     roster_map = {}
     teams = list(TEAM_MAP.keys())
-    for abbr in teams:
-        try:
-            r = requests.get(f"https://api-web.nhle.com/v1/roster/{abbr}/current", timeout=8)
-            data = r.json()
-            for group in ('forwards', 'defensemen', 'goalies'):
-                for player in data.get(group, []):
-                    pid = str(player.get('id', ''))
-                    if pid:
-                        roster_map[pid] = abbr
-        except:
-            continue
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = {executor.submit(fetch_team_roster, abbr): abbr for abbr in teams}
+        for future in as_completed(futures):
+            roster_map.update(future.result())
     if roster_map:
         _roster_cache["data"] = roster_map
         _roster_cache["ts"] = now_ts
@@ -239,10 +247,11 @@ def nhl_dashboard_main():
             .team-stat-card b { font-size: 1.4rem; display: block; margin-top: 6px; color: var(--accent); }
             /* Trending IR Leaderboard */
             .trending-modal { display:none; position:fixed; z-index:3000; left:0; top:0; width:100%; height:100%; background:rgba(2,6,23,0.97); backdrop-filter:blur(10px); }
-            .trending-modal-box { background: #0b1426; width: 600px; max-width: 94%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; padding: 36px; overflow-y: auto; max-height: 84vh; }
-            .trend-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-            .trend-rank { font-family: 'Syncopate'; font-size: 0.65rem; color: #64748b; width: 28px; }
-            .trend-arrow { font-size: 0.8rem; font-weight: 900; width: 20px; }
+            .trending-modal-box { background: #0b1426; width: 600px; max-width: 96%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; padding: 36px; overflow-y: auto; max-height: 84vh; box-sizing: border-box; }
+            .trend-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); min-width: 0; }
+            .trend-rank { font-family: 'Syncopate'; font-size: 0.65rem; color: #64748b; width: 28px; flex-shrink: 0; }
+            .trend-arrow { font-size: 0.8rem; font-weight: 900; width: 16px; flex-shrink: 0; }
+            .trend-ir { font-weight: 900; font-size: 1.05rem; flex-shrink: 0; min-width: 42px; text-align: right; }
             /* Share button in modal */
             .share-btn { background: none; border: 1px solid rgba(56,189,248,0.4); color: var(--accent); font-size: 0.65rem; font-family: 'Syncopate'; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
             .share-btn:hover { background: var(--accent); color: #000; }
@@ -265,6 +274,7 @@ def nhl_dashboard_main():
                 .comp-info-text { bottom: 12px; font-size: 0.65rem; }
                 .stat-grid { grid-template-columns: repeat(3, 1fr); }
                 .ir-modal-box { padding: 24px 20px; margin: 6vh auto; }
+                .trending-modal-box { padding: 24px 16px; }
                 footer { flex-direction: column; align-items: flex-start; }
             }
         </style>
@@ -592,9 +602,9 @@ def nhl_dashboard_main():
                     return `<div class="trend-row" onclick="closeTrending(); setTimeout(()=>openModal('${p.id}'),100)" style="cursor:pointer;">
                         <div class="trend-rank">#${i+1}</div>
                         <div class="trend-arrow">${arrow}</div>
-                        <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:34px;height:34px;border-radius:50%;background:#000" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
-                        <div style="flex:1"><div style="font-weight:700; font-size:0.85rem;">${p.name}</div><div style="font-size:0.68rem; color:#64748b;">${p.team}</div></div>
-                        <div style="color:${irCol}; font-weight:900; font-size:1.05rem;">${p.ir}</div></div>`;
+                        <img src="https://assets.nhle.com/mugs/nhl/latest/${p.id}.png" style="width:34px;height:34px;border-radius:50%;background:#000;flex-shrink:0;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${p.abbr}_light.svg'">
+                        <div style="flex:1;min-width:0;overflow:hidden;"><div style="font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div><div style="font-size:0.68rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.team}</div></div>
+                        <div class="trend-ir" style="color:${irCol};">${p.ir}</div></div>`;
                 };
                 document.getElementById('trending-skaters').innerHTML = skaters.map(makeRow).join('');
                 document.getElementById('trending-goalies').innerHTML = goalies.map(makeRow).join('');
