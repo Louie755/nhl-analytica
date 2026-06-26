@@ -148,7 +148,7 @@ def nhl_dashboard_main():
             @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(2, 6, 23, 0.95); backdrop-filter:blur(10px); }
             .modal-box { background: #0b1426; width: 950px; max-width: 95%; margin: 8vh auto; border-radius: 25px; border: 1px solid #1f3a52; display: grid; grid-template-columns: 1fr 1.2fr; overflow: hidden; }
-            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; max-height: 80vh; }
+            .m-left { padding: 40px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; overflow-y: auto; }
             .m-right { padding: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
             .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 20px 0; }
             .stat-box { background: #16253d; padding: 12px; border-radius: 12px; text-align: left; }
@@ -215,8 +215,8 @@ def nhl_dashboard_main():
                 .nav-tabs { gap: 18px; padding: 14px 0; flex-wrap: wrap; justify-content: center; }
                 .tab-btn { font-size: 0.7rem; }
                 .grid { grid-template-columns: 1fr; padding: 16px 4%; gap: 14px; }
-                .modal-box { grid-template-columns: 1fr; width: 96%; margin: 4vh auto; border-radius: 18px; }
-                .m-left { padding: 24px 20px; max-height: none; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+                .modal-box { grid-template-columns: 1fr; width: 96%; margin: 4vh auto; border-radius: 18px; max-height: 92vh; overflow-y: auto; }
+                .m-left { padding: 24px 20px; max-height: none; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); overflow-y: visible; }
                 .m-right { padding: 24px 20px; min-height: 280px; }
                 .m-left h2 { font-size: 1.2rem !important; }
                 .comp-btn { top: 16px; right: 16px; padding: 8px 12px; font-size: 0.65rem; }
