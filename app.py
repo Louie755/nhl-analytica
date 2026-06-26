@@ -25,7 +25,34 @@ def fetch_nhl_safe(url, season, sort_prop, game_type=2):
         except: break
     return all_data
 
-def get_today_scorers():
+_roster_cache = {"data": {}, "ts": 0}
+
+def get_current_roster_map():
+    """Fetch real-time current rosters for all 32 NHL teams and return a dict of {player_id: abbr}.
+    Cached for 10 minutes to avoid hammering the API on every request."""
+    global _roster_cache
+    now_ts = datetime.now().timestamp()
+    if _roster_cache["data"] and (now_ts - _roster_cache["ts"]) < 600:
+        return _roster_cache["data"]
+    roster_map = {}
+    teams = list(TEAM_MAP.keys())
+    for abbr in teams:
+        try:
+            r = requests.get(f"https://api-web.nhle.com/v1/roster/{abbr}/current", timeout=8)
+            data = r.json()
+            for group in ('forwards', 'defensemen', 'goalies'):
+                for player in data.get(group, []):
+                    pid = str(player.get('id', ''))
+                    if pid:
+                        roster_map[pid] = abbr
+        except:
+            continue
+    if roster_map:
+        _roster_cache["data"] = roster_map
+        _roster_cache["ts"] = now_ts
+    return roster_map or _roster_cache["data"]
+
+
     scorer_ids = set()
     try:
         r = requests.get("https://api-web.nhle.com/v1/score/now", timeout=10)
@@ -56,6 +83,8 @@ def get_nhl_data():
     s_reg, s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
     g_reg, g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
     today_scorers = get_today_scorers()
+    # Fetch real-time roster map to override stale team assignments from stats API
+    roster_map = get_current_roster_map()
 
     def process_skaters(raw, min_gp):
         processed = []
@@ -64,16 +93,21 @@ def get_nhl_data():
             if gp < min_gp: continue
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
-            raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
-            teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
-            main_abbr = teams_list[-1] if teams_list else ""
+            pid = str(p.get('playerId'))
+            # Use real-time roster map if available, fall back to stats API team
+            if pid in roster_map:
+                main_abbr = roster_map[pid]
+            else:
+                raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
+                teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
+                main_abbr = teams_list[-1] if teams_list else ""
             processed.append({
-                "id": str(p.get('playerId')), "name": p.get('skaterFullName'), "type": "skater", 
-                "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir, 
-                "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm, 
-                "team": TEAM_MAP.get(main_abbr, main_abbr), 
-                "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0), 
-                "trending": str(p.get('playerId')) in today_scorers, 
+                "id": pid, "name": p.get('skaterFullName'), "type": "skater",
+                "abbr": main_abbr, "pos": p.get('positionCode'), "gp": gp, "pts": pts, "ppg": ppg, "ir": ir,
+                "g": p.get('goals', 0), "a": p.get('assists', 0), "sh": sh, "pm": pm,
+                "team": TEAM_MAP.get(main_abbr, main_abbr),
+                "prob": min(round(((p.get('goals', 0)/gp)*50 + (sh/gp)*10), 1), 95.0),
+                "trending": pid in today_scorers,
                 "col": TEAM_COLORS.get(main_abbr, "#38bdf8")
             })
         processed.sort(key=lambda x: (-x['pts'], x['gp']))
@@ -88,15 +122,20 @@ def get_nhl_data():
             ga, sa, wins = p.get('goalsAgainst', 0), max(1, p.get('shotsAgainst', 0)), p.get('wins', 0)
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
-            raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
-            teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
-            main_abbr = teams_list[-1] if teams_list else ""
+            pid = str(p.get('playerId'))
+            # Use real-time roster map if available, fall back to stats API team
+            if pid in roster_map:
+                main_abbr = roster_map[pid]
+            else:
+                raw_abbr = p.get('teamAbbrevs', p.get('teamAbbrev', ''))
+                teams_list = [t.strip().upper() for t in str(raw_abbr).split(',') if t.strip()]
+                main_abbr = teams_list[-1] if teams_list else ""
             processed.append({
-                "id": str(p.get('playerId')), "name": p.get('goalieFullName'), "type": "goalie", 
-                "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir, 
-                "so": p.get('shutouts', 0), "sa": sa, "ga": ga, 
-                "team": TEAM_MAP.get(main_abbr, main_abbr), 
-                "trending": str(p.get('playerId')) in today_scorers, 
+                "id": pid, "name": p.get('goalieFullName'), "type": "goalie",
+                "abbr": main_abbr, "pos": "G", "gp": gp, "w": wins, "sv": sv_val, "gaa": gaa, "ir": ir,
+                "so": p.get('shutouts', 0), "sa": sa, "ga": ga,
+                "team": TEAM_MAP.get(main_abbr, main_abbr),
+                "trending": pid in today_scorers,
                 "col": TEAM_COLORS.get(main_abbr, "#38bdf8")
             })
         processed.sort(key=lambda x: (-x['w'], x['gp']))
