@@ -225,23 +225,162 @@ def get_nhl_data():
 
     return jsonify({"regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)}, "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}})
 
+@app.route('/og-image')
+def og_image():
+    from PIL import Image, ImageDraw, ImageFont
+    import io, urllib.request
+
+    player_id = request.args.get('player', '')
+    compare_ids = request.args.get('compare', '')
+    mode = request.args.get('mode', 'regular')
+    type_ = request.args.get('type', 'skater')
+
+    # Get player data from cache
+    roster = _roster_cache.get('data', {})
+
+    def find_player(pid):
+        # Search NHL stats API quickly for this player
+        try:
+            now = datetime.now()
+            season = f"{now.year}{now.year+1}" if now.month >= 9 else f"{now.year-1}{now.year}"
+            url = f"https://api.nhle.com/stats/rest/en/{'skater' if type_=='skater' else 'goalie'}/summary"
+            params = {"isAggregate":"false","isGame":"false","sort":'[{"property":"points","direction":"DESC"}]',"start":0,"limit":500,"cayenneExp":f"seasonId={season} and gameTypeId=2 and playerId={pid}"}
+            r = requests.get(url, params=params, timeout=5)
+            data = r.json().get('data', [])
+            if data:
+                p = data[0]
+                abbr = roster.get(str(pid), p.get('teamAbbrevs', p.get('teamAbbrev', ''))[:3])
+                return {"name": p.get('skaterFullName', p.get('goalieFullName', 'Player')), "abbr": abbr, "ir": "—", "pts": p.get('points', p.get('wins', 0))}
+        except: pass
+        return None
+
+    # Create 1200x630 image
+    img = Image.new('RGB', (1200, 630), color=(3, 7, 18))
+    draw = ImageDraw.Draw(img)
+
+    # Background gradient effect
+    for i in range(630):
+        alpha = int(20 * (1 - i/630))
+        draw.line([(0, i), (1200, i)], fill=(56, 189, 248, alpha))
+
+    # Draw accent line at top
+    draw.rectangle([0, 0, 1200, 5], fill=(56, 189, 248))
+
+    try:
+        font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 64)
+        font_med = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+        font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+        font_xs = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+    except:
+        font_big = font_med = font_sm = font_xs = ImageFont.load_default()
+
+    if player_id:
+        p = find_player(player_id)
+        name = p['name'] if p else "NHL Player"
+        abbr = p['abbr'] if p else ""
+        team = TEAM_MAP.get(abbr, abbr)
+        col = TEAM_COLORS.get(abbr, "#38bdf8")
+        r2, g2, b2 = int(col[1:3],16), int(col[3:5],16), int(col[5:7],16)
+
+        # Try to load player headshot
+        try:
+            req = urllib.request.Request(f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png", headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                headshot = Image.open(io.BytesIO(resp.read())).convert('RGBA').resize((220, 220))
+                img.paste(headshot, (80, 180), headshot)
+        except: pass
+
+        # Team color bar on left
+        draw.rectangle([0, 0, 8, 630], fill=(r2, g2, b2))
+
+        # NHL Analytica branding
+        draw.text((340, 60), "NHL ANALYTICA", fill=(56, 189, 248), font=font_med)
+        draw.text((340, 110), f"PLAYER PROFILE  ·  {mode.upper()} SEASON", fill=(100, 116, 139), font=font_xs)
+
+        # Player name
+        draw.text((340, 180), name.upper(), fill=(255, 255, 255), font=font_big)
+
+        # Team badge
+        draw.rectangle([340, 270, 340 + len(team)*14 + 20, 310], fill=(r2, g2, b2))
+        draw.text((350, 276), team.upper(), fill=(255, 255, 255), font=font_sm)
+
+        # Stats boxes
+        if p:
+            stat_label = "PTS" if type_ == 'skater' else "WINS"
+            draw.rectangle([340, 340, 480, 420], fill=(15, 31, 53), outline=(31, 58, 82))
+            draw.text((360, 350), stat_label, fill=(100, 116, 139), font=font_xs)
+            draw.text((360, 378), str(p['pts']), fill=(56, 189, 248), font=font_med)
+
+    else:
+        # Default OG image
+        draw.text((100, 200), "NHL ANALYTICA", fill=(56, 189, 248), font=font_big)
+        draw.text((100, 300), "Real-time NHL stats powered by the", fill=(255, 255, 255), font=font_med)
+        draw.text((100, 350), "proprietary Impact Rating (IR) metric.", fill=(255, 255, 255), font=font_med)
+
+    # Footer
+    draw.rectangle([0, 570, 1200, 630], fill=(9, 20, 38))
+    draw.text((80, 590), "nhlanalytica.com", fill=(56, 189, 248), font=font_sm)
+    draw.text((900, 590), "Built by Louie Suh", fill=(100, 116, 139), font=font_sm)
+
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype='image/png', headers={
+        'Cache-Control': 'public, max-age=3600',
+        'Content-Type': 'image/png'
+    })
+
 @app.route('/')
 def nhl_dashboard_main():
+    # Read URL params for dynamic OG tags
+    player_id = request.args.get('player', '')
+    compare_ids = request.args.get('compare', '')
+    mode = request.args.get('mode', 'regular')
+    type_ = request.args.get('type', 'skater')
+
+    og_title = "NHL ANALYTICA"
+    og_desc = "Real-time NHL player stats powered by the proprietary Impact Rating (IR) metric. Built by Louie Suh."
+    og_image = "https://nhlanalytica.com/og-image"
+
+    if player_id:
+        og_image = f"https://nhlanalytica.com/og-image?player={player_id}&mode={mode}&type={type_}"
+    elif compare_ids:
+        og_image = f"https://nhlanalytica.com/og-image?compare={compare_ids}&mode={mode}&type={type_}"
+
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
+        <meta name="description" content="NHL Analytica: Real-time NHL player stats powered by the proprietary Impact Rating (IR) metric. Built by Louie Suh.">
         <meta name="theme-color" content="#030712">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="NHL Analytica">
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="NHL Analytica">
+        <meta property="og:title" content="{{ og_title }}">
+        <meta property="og:description" content="{{ og_desc }}">
+        <meta property="og:image" content="{{ og_image }}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:url" content="https://nhlanalytica.com/">
+
+        <!-- Twitter Card -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:site" content="@nhl_analytica">
+        <meta name="twitter:title" content="{{ og_title }}">
+        <meta name="twitter:description" content="{{ og_desc }}">
+        <meta name="twitter:image" content="{{ og_image }}">
+        <meta name="twitter:creator" content="@nhl_analytica">
+
         <link rel="manifest" href="/manifest.json">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/logo.png') }}">
-        
+
         <title>NHL ANALYTICA</title>
 
         <!-- FAVICON: embedded as base64, no file path needed -->
@@ -718,7 +857,7 @@ def nhl_dashboard_main():
         </script>
     </body>
     </html>
-    """)
+    """, og_title=og_title, og_desc=og_desc, og_image=og_image)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
