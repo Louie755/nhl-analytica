@@ -39,6 +39,68 @@ def get_today_scorers():
     except: pass
     return scorer_ids
 
+@app.route('/manifest.json')
+def manifest():
+    return jsonify({
+        "name": "NHL Analytica",
+        "short_name": "NHLAnalytica",
+        "description": "Real-time NHL player stats powered by the proprietary Impact Rating (IR) metric.",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#030712",
+        "theme_color": "#030712",
+        "orientation": "portrait-primary",
+        "icons": [
+            {"src": "/static/images/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/images/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ],
+        "categories": ["sports", "news"],
+        "lang": "en"
+    })
+
+@app.route('/service-worker.js')
+def service_worker():
+    sw_code = """
+const CACHE_NAME = 'nhl-analytica-v1';
+const STATIC_ASSETS = ['/'];
+
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(keys => Promise.all(
+            keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        ))
+    );
+    self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    // Always fetch live data from API fresh
+    if (url.pathname.startsWith('/api/')) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+    // For everything else: network first, fall back to cache
+    event.respondWith(
+        fetch(event.request)
+            .then(response => {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                return response;
+            })
+            .catch(() => caches.match(event.request))
+    );
+});
+"""
+    return Response(sw_code, mimetype='application/javascript')
+
 _roster_cache = {"data": {}, "ts": 0, "loading": False}
 
 def fetch_team_roster(abbr):
@@ -172,6 +234,13 @@ def nhl_dashboard_main():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="NHL Analytica: 최첨단 Impact Rating(IR) 지표로 분석하는 실시간 NHL 선수 통계 및 데이터 시각화 플랫폼.">
+        <meta name="theme-color" content="#030712">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="NHL Analytica">
+        <link rel="manifest" href="/manifest.json">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/logo.png') }}">
         
         <title>NHL ANALYTICA</title>
 
@@ -638,6 +707,12 @@ def nhl_dashboard_main():
             // Back to top
             const btt = document.getElementById('back-to-top');
             window.addEventListener('scroll', () => { btt.style.display = window.scrollY > 400 ? 'flex' : 'none'; });
+
+            // Register service worker for PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .catch(err => console.log('SW registration failed:', err));
+            }
 
             init();
         </script>
