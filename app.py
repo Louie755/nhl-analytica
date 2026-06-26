@@ -140,10 +140,7 @@ self.addEventListener('notificationclick', event => {
 _roster_cache = {"data": {}, "ts": 0, "loading": False}
 
 # ── PUSH NOTIFICATION SYSTEM ──
-import json, hmac, hashlib, struct, time
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+import json, hashlib, time, base64
 
 VAPID_PUBLIC_KEY = "BJZTmoobqKLvTUvuaxlU7P0m6xjpzpzSL1kR6y7Dnuz5y9OTodNcamM1xUu4KUg1xj88GUI1VDtIuPsbgL-Of18"
 VAPID_PRIVATE_PEM = """-----BEGIN PRIVATE KEY-----
@@ -153,10 +150,8 @@ ZMKz29NQ9cXG2+fq3rxOiV3ubO6hRANCAASWU5qKG6ii701L7msZVOz9JusY6c6c
 -----END PRIVATE KEY-----"""
 VAPID_CONTACT = "mailto:louie@nhlanalytica.com"
 
-# In-memory subscription store (persists while server is running)
-# For production: replace with a database
 _push_subscriptions = {}
-_roster_snapshot = {}  # previous roster state for change detection
+_roster_snapshot = {}
 
 @app.route('/push/vapid-public-key')
 def get_vapid_key():
@@ -184,59 +179,29 @@ def push_subscriber_count():
     return jsonify({"count": len(_push_subscriptions)})
 
 def send_push_notification(subscription, payload):
-    """Send a push notification using the Web Push Protocol with VAPID."""
+    """Send push notification via pywebpush (lazy import so startup isn't slowed)."""
     try:
-        import base64, urllib.request as urllib_req, urllib.error
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives import hashes
-        
-        endpoint = subscription.get('endpoint', '')
-        if not endpoint:
-            return False
-
-        # Build VAPID JWT header
-        audience = '/'.join(endpoint.split('/')[:3])
-        exp = int(time.time()) + 43200  # 12 hours
-        
-        header = base64.urlsafe_b64encode(json.dumps({"typ":"JWT","alg":"ES256"}).encode()).rstrip(b'=').decode()
-        claims = base64.urlsafe_b64encode(json.dumps({"aud": audience, "exp": exp, "sub": VAPID_CONTACT}).encode()).rstrip(b'=').decode()
-        signing_input = f"{header}.{claims}".encode()
-        
-        # Sign with private key
-        private_key = serialization.load_pem_private_key(VAPID_PRIVATE_PEM.encode(), password=None, backend=default_backend())
-        signature = private_key.sign(signing_input, ec.ECDSA(hashes.SHA256()))
-        
-        # Convert DER signature to raw R+S
-        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
-        r, s = decode_dss_signature(signature)
-        sig_bytes = r.to_bytes(32, 'big') + s.to_bytes(32, 'big')
-        sig_b64 = base64.urlsafe_b64encode(sig_bytes).rstrip(b'=').decode()
-        
-        jwt_token = f"{header}.{claims}.{sig_b64}"
-        vapid_auth = f"vapid t={jwt_token},k={VAPID_PUBLIC_KEY}"
-        
-        # Send the notification
-        body = json.dumps(payload).encode('utf-8')
-        req = urllib_req.Request(endpoint, data=body, method='POST')
-        req.add_header('Authorization', vapid_auth)
-        req.add_header('Content-Type', 'application/json')
-        req.add_header('TTL', '86400')
-        
-        with urllib_req.urlopen(req, timeout=10) as resp:
-            return resp.status in (200, 201, 202)
-    except Exception as e:
+        from pywebpush import webpush, WebPushException
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps(payload),
+            vapid_private_key=VAPID_PRIVATE_PEM,
+            vapid_claims={"sub": VAPID_CONTACT},
+            content_encoding="aes128gcm"
+        )
+        return True
+    except Exception:
         return False
 
 def broadcast_push(title, body, url='/', tag='nhl-alert'):
-    """Send push notification to all subscribers."""
+    """Send push notification to all subscribers in background - never blocks."""
     if not _push_subscriptions:
         return 0
     payload = {"title": title, "body": body, "url": url, "tag": tag, "icon": "/static/images/logo.png"}
     sent = 0
     dead = []
     for sub_id, sub in list(_push_subscriptions.items()):
-        success = send_push_notification(sub, payload)
-        if success:
+        if send_push_notification(sub, payload):
             sent += 1
         else:
             dead.append(sub_id)
@@ -245,7 +210,7 @@ def broadcast_push(title, body, url='/', tag='nhl-alert'):
     return sent
 
 def detect_roster_changes(new_roster):
-    """Compare new roster to previous snapshot and return list of changes."""
+    """Compare new roster to snapshot. Returns list of moves."""
     global _roster_snapshot
     changes = []
     if not _roster_snapshot:
