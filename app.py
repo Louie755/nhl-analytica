@@ -4,6 +4,7 @@ import requests
 import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 app = Flask(__name__)
 
@@ -26,7 +27,19 @@ def fetch_nhl_safe(url, season, sort_prop, game_type=2):
         except: break
     return all_data
 
-_roster_cache = {"data": {}, "ts": 0}
+def get_today_scorers():
+    scorer_ids = set()
+    try:
+        r = requests.get("https://api-web.nhle.com/v1/score/now", timeout=10)
+        games = r.json().get('games', [])
+        for game in games:
+            for goal in game.get('goals', []):
+                sid = goal.get('playerId')
+                if sid: scorer_ids.add(str(sid))
+    except: pass
+    return scorer_ids
+
+_roster_cache = {"data": {}, "ts": 0, "loading": False}
 
 def fetch_team_roster(abbr):
     try:
@@ -42,35 +55,33 @@ def fetch_team_roster(abbr):
     except:
         return {}
 
-def get_current_roster_map():
-    """Fetch real-time current rosters for all 32 NHL teams in parallel.
-    Cached for 10 minutes to avoid hammering the API on every request."""
+def refresh_roster_cache():
+    """Fetch all 32 rosters in parallel. Always runs in a background thread."""
     global _roster_cache
-    now_ts = datetime.now().timestamp()
-    if _roster_cache["data"] and (now_ts - _roster_cache["ts"]) < 600:
-        return _roster_cache["data"]
-    roster_map = {}
-    teams = list(TEAM_MAP.keys())
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        futures = {executor.submit(fetch_team_roster, abbr): abbr for abbr in teams}
-        for future in as_completed(futures):
-            roster_map.update(future.result())
-    if roster_map:
-        _roster_cache["data"] = roster_map
-        _roster_cache["ts"] = now_ts
-    return roster_map or _roster_cache["data"]
-
-
-    scorer_ids = set()
+    if _roster_cache["loading"]:
+        return
+    _roster_cache["loading"] = True
     try:
-        r = requests.get("https://api-web.nhle.com/v1/score/now", timeout=10)
-        games = r.json().get('games', [])
-        for game in games:
-            for goal in game.get('goals', []):
-                sid = goal.get('playerId')
-                if sid: scorer_ids.add(str(sid))
-    except: pass
-    return scorer_ids
+        roster_map = {}
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            futures = {executor.submit(fetch_team_roster, abbr): abbr for abbr in TEAM_MAP.keys()}
+            for future in as_completed(futures):
+                roster_map.update(future.result())
+        if roster_map:
+            _roster_cache["data"] = roster_map
+            _roster_cache["ts"] = datetime.now().timestamp()
+    finally:
+        _roster_cache["loading"] = False
+
+def get_current_roster_map():
+    """Return cached roster map immediately. Triggers background refresh if stale (>10 min)."""
+    now_ts = datetime.now().timestamp()
+    if (now_ts - _roster_cache["ts"]) > 600 and not _roster_cache["loading"]:
+        threading.Thread(target=refresh_roster_cache, daemon=True).start()
+    return _roster_cache["data"]  # always returns instantly, never blocks
+
+# Warm up roster cache on startup
+threading.Thread(target=refresh_roster_cache, daemon=True).start()
 
 # 사이트맵 경로 (동작 보장)
 @app.route('/sitemap.xml')
