@@ -61,7 +61,7 @@ def manifest():
 @app.route('/service-worker.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'nhl-analytica-v1';
+const CACHE_NAME = 'nhl-analytica-v2';
 const STATIC_ASSETS = ['/'];
 
 self.addEventListener('install', event => {
@@ -82,12 +82,10 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-    // Always fetch live data from API fresh
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/push/')) {
         event.respondWith(fetch(event.request));
         return;
     }
-    // For everything else: network first, fall back to cache
     event.respondWith(
         fetch(event.request)
             .then(response => {
@@ -98,10 +96,167 @@ self.addEventListener('fetch', event => {
             .catch(() => caches.match(event.request))
     );
 });
+
+// Handle incoming push notifications
+self.addEventListener('push', event => {
+    const data = event.data ? event.data.json() : {};
+    const title = data.title || 'NHL Analytica';
+    const options = {
+        body: data.body || 'Roster move detected!',
+        icon: data.icon || '/static/images/logo.png',
+        badge: '/static/images/logo.png',
+        data: { url: data.url || '/' },
+        vibrate: [200, 100, 200],
+        tag: data.tag || 'nhl-alert',
+        renotify: true,
+        actions: [
+            { action: 'view', title: 'View Player' },
+            { action: 'dismiss', title: 'Dismiss' }
+        ]
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    if (event.action === 'dismiss') return;
+    const url = event.notification.data?.url || '/';
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (const client of clientList) {
+                if (client.url.includes('nhlanalytica.com') && 'focus' in client) {
+                    client.navigate(url);
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) return clients.openWindow(url);
+        })
+    );
+});
 """
     return Response(sw_code, mimetype='application/javascript')
 
 _roster_cache = {"data": {}, "ts": 0, "loading": False}
+
+# ── PUSH NOTIFICATION SYSTEM ──
+import json, hmac, hashlib, struct, time
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+
+VAPID_PUBLIC_KEY = "BJZTmoobqKLvTUvuaxlU7P0m6xjpzpzSL1kR6y7Dnuz5y9OTodNcamM1xUu4KUg1xj88GUI1VDtIuPsbgL-Of18"
+VAPID_PRIVATE_PEM = """-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgVKEdtzKhOVbJI081
+ZMKz29NQ9cXG2+fq3rxOiV3ubO6hRANCAASWU5qKG6ii701L7msZVOz9JusY6c6c
+0i9ZEesuw57s+cvTk6HTXGpjNcVLuClINcY/PBlCNVQ7SLj7G4C/jn9f
+-----END PRIVATE KEY-----"""
+VAPID_CONTACT = "mailto:louie@nhlanalytica.com"
+
+# In-memory subscription store (persists while server is running)
+# For production: replace with a database
+_push_subscriptions = {}
+_roster_snapshot = {}  # previous roster state for change detection
+
+@app.route('/push/vapid-public-key')
+def get_vapid_key():
+    return jsonify({"publicKey": VAPID_PUBLIC_KEY})
+
+@app.route('/push/subscribe', methods=['POST'])
+def push_subscribe():
+    data = request.get_json()
+    if not data or 'endpoint' not in data:
+        return jsonify({"error": "Invalid subscription"}), 400
+    sub_id = hashlib.md5(data['endpoint'].encode()).hexdigest()
+    _push_subscriptions[sub_id] = data
+    return jsonify({"status": "subscribed", "id": sub_id})
+
+@app.route('/push/unsubscribe', methods=['POST'])
+def push_unsubscribe():
+    data = request.get_json()
+    if data and 'endpoint' in data:
+        sub_id = hashlib.md5(data['endpoint'].encode()).hexdigest()
+        _push_subscriptions.pop(sub_id, None)
+    return jsonify({"status": "unsubscribed"})
+
+@app.route('/push/subscribers')
+def push_subscriber_count():
+    return jsonify({"count": len(_push_subscriptions)})
+
+def send_push_notification(subscription, payload):
+    """Send a push notification using the Web Push Protocol with VAPID."""
+    try:
+        import base64, urllib.request as urllib_req, urllib.error
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import hashes
+        
+        endpoint = subscription.get('endpoint', '')
+        if not endpoint:
+            return False
+
+        # Build VAPID JWT header
+        audience = '/'.join(endpoint.split('/')[:3])
+        exp = int(time.time()) + 43200  # 12 hours
+        
+        header = base64.urlsafe_b64encode(json.dumps({"typ":"JWT","alg":"ES256"}).encode()).rstrip(b'=').decode()
+        claims = base64.urlsafe_b64encode(json.dumps({"aud": audience, "exp": exp, "sub": VAPID_CONTACT}).encode()).rstrip(b'=').decode()
+        signing_input = f"{header}.{claims}".encode()
+        
+        # Sign with private key
+        private_key = serialization.load_pem_private_key(VAPID_PRIVATE_PEM.encode(), password=None, backend=default_backend())
+        signature = private_key.sign(signing_input, ec.ECDSA(hashes.SHA256()))
+        
+        # Convert DER signature to raw R+S
+        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+        r, s = decode_dss_signature(signature)
+        sig_bytes = r.to_bytes(32, 'big') + s.to_bytes(32, 'big')
+        sig_b64 = base64.urlsafe_b64encode(sig_bytes).rstrip(b'=').decode()
+        
+        jwt_token = f"{header}.{claims}.{sig_b64}"
+        vapid_auth = f"vapid t={jwt_token},k={VAPID_PUBLIC_KEY}"
+        
+        # Send the notification
+        body = json.dumps(payload).encode('utf-8')
+        req = urllib_req.Request(endpoint, data=body, method='POST')
+        req.add_header('Authorization', vapid_auth)
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('TTL', '86400')
+        
+        with urllib_req.urlopen(req, timeout=10) as resp:
+            return resp.status in (200, 201, 202)
+    except Exception as e:
+        return False
+
+def broadcast_push(title, body, url='/', tag='nhl-alert'):
+    """Send push notification to all subscribers."""
+    if not _push_subscriptions:
+        return 0
+    payload = {"title": title, "body": body, "url": url, "tag": tag, "icon": "/static/images/logo.png"}
+    sent = 0
+    dead = []
+    for sub_id, sub in list(_push_subscriptions.items()):
+        success = send_push_notification(sub, payload)
+        if success:
+            sent += 1
+        else:
+            dead.append(sub_id)
+    for sub_id in dead:
+        _push_subscriptions.pop(sub_id, None)
+    return sent
+
+def detect_roster_changes(new_roster):
+    """Compare new roster to previous snapshot and return list of changes."""
+    global _roster_snapshot
+    changes = []
+    if not _roster_snapshot:
+        _roster_snapshot = dict(new_roster)
+        return changes
+    for pid, new_team in new_roster.items():
+        old_team = _roster_snapshot.get(pid)
+        if old_team and old_team != new_team:
+            changes.append({"pid": pid, "old_team": old_team, "new_team": new_team})
+    _roster_snapshot = dict(new_roster)
+    return changes
 
 def fetch_team_roster(abbr):
     try:
@@ -118,7 +273,7 @@ def fetch_team_roster(abbr):
         return {}
 
 def refresh_roster_cache():
-    """Fetch all 32 rosters in parallel. Always runs in a background thread."""
+    """Fetch all 32 rosters in parallel. Detects roster moves and sends push notifications."""
     global _roster_cache
     if _roster_cache["loading"]:
         return
@@ -130,6 +285,25 @@ def refresh_roster_cache():
             for future in as_completed(futures):
                 roster_map.update(future.result())
         if roster_map:
+            # Detect roster changes before updating cache
+            changes = detect_roster_changes(roster_map)
+            for change in changes:
+                pid = change['pid']
+                old_abbr = change['old_team']
+                new_abbr = change['new_team']
+                old_team = TEAM_MAP.get(old_abbr, old_abbr)
+                new_team = TEAM_MAP.get(new_abbr, new_abbr)
+                # Fire push notification
+                threading.Thread(
+                    target=broadcast_push,
+                    args=(
+                        f"🚨 NHL Roster Move",
+                        f"Player moved: {old_team} → {new_team}",
+                        f"/?player={pid}&mode=regular&type=skater",
+                        f"roster-{pid}"
+                    ),
+                    daemon=True
+                ).start()
             _roster_cache["data"] = roster_map
             _roster_cache["ts"] = datetime.now().timestamp()
     finally:
@@ -346,6 +520,10 @@ def nhl_dashboard_main():
             .ir-formula { background: #16253d; border: 1px solid #1f3a52; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.85rem; color: var(--accent); margin: 15px 0; line-height: 1.8; }
             .ir-grade-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
             .ir-grade-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+            /* Push notification bell */
+            .notif-btn { background: none; border: 1px solid rgba(255,255,255,0.15); color: #aab4be; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; transition: 0.3s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+            .notif-btn:hover { border-color: var(--accent); color: var(--accent); }
+            .notif-btn.subscribed { border-color: #2ecc71; color: #2ecc71; }
             /* Last updated indicator */
             .last-updated { font-size: 0.65rem; color: #64748b; text-align: center; padding: 4px 0 8px; font-weight: 600; letter-spacing: 0.5px; }
             .last-updated.refreshing { color: var(--accent); animation: blink 1.2s infinite; }
@@ -411,6 +589,7 @@ def nhl_dashboard_main():
                 <span>NHL ANALYTICA</span>
             </a>
             <input type="text" id="pSearch" class="search-box" placeholder="Search Player Name..." oninput="render()">
+            <button class="notif-btn" id="notif-btn" onclick="togglePushSubscription()" title="Get trade alerts">🔔</button>
             <a href="https://www.youtube.com/@nhl_analytica" target="_blank" class="footer-yt">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                 WATCH ON YOUTUBE
@@ -748,6 +927,87 @@ def nhl_dashboard_main():
                 else datasets.push({ label: 'Avg', data: [50, 50, 50, 50, 50], backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderDash: [5, 5], pointRadius: 0 });
                 chartInstance = new Chart(ctx, { type: 'radar', data: { labels: ['Scoring', 'Playmaking', 'Efficiency', 'Shot Vol.', 'Def.'], datasets: datasets }, options: { scales: { r: { min:0, max:100, grid: { color: '#1f2d44' }, angleLines: { color: '#1f2d44' }, ticks: { display: false }, pointLabels: { color: '#aab4be', font: { size: 11, weight: 'bold' } } } }, plugins: { legend: { display: false } } } });
             }
+            // ── PUSH NOTIFICATIONS ──
+            let pushSubscription = null;
+
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+            }
+
+            async function togglePushSubscription() {
+                const btn = document.getElementById('notif-btn');
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    alert('Push notifications are not supported in this browser.');
+                    return;
+                }
+                if (pushSubscription) {
+                    // Unsubscribe
+                    await fetch('/push/unsubscribe', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(pushSubscription.toJSON())
+                    });
+                    await pushSubscription.unsubscribe();
+                    pushSubscription = null;
+                    btn.textContent = '🔔';
+                    btn.classList.remove('subscribed');
+                    btn.title = 'Get trade alerts';
+                } else {
+                    // Subscribe
+                    try {
+                        const permission = await Notification.requestPermission();
+                        if (permission !== 'granted') {
+                            alert('Please allow notifications to get trade alerts.');
+                            return;
+                        }
+                        const reg = await navigator.serviceWorker.ready;
+                        const keyRes = await fetch('/push/vapid-public-key');
+                        const { publicKey } = await keyRes.json();
+                        pushSubscription = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(publicKey)
+                        });
+                        await fetch('/push/subscribe', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(pushSubscription.toJSON())
+                        });
+                        btn.textContent = '🔕';
+                        btn.classList.add('subscribed');
+                        btn.title = 'Alerts on — click to unsubscribe';
+                        showToast('🔔 Trade alerts enabled! You\'ll be notified of any roster moves.');
+                    } catch (err) {
+                        alert('Could not enable notifications: ' + err.message);
+                    }
+                }
+            }
+
+            async function checkExistingSubscription() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                try {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    if (sub) {
+                        pushSubscription = sub;
+                        const btn = document.getElementById('notif-btn');
+                        btn.textContent = '🔕';
+                        btn.classList.add('subscribed');
+                        btn.title = 'Alerts on — click to unsubscribe';
+                    }
+                } catch(e) {}
+            }
+
+            function showToast(message) {
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0b1426;border:1px solid #2ecc71;color:#2ecc71;padding:12px 24px;border-radius:12px;font-size:0.85rem;font-weight:700;z-index:9999;animation:fadeIn 0.3s;max-width:90%;text-align:center;';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+            }
+
             // Back to top
             const btt = document.getElementById('back-to-top');
             window.addEventListener('scroll', () => { btt.style.display = window.scrollY > 400 ? 'flex' : 'none'; });
@@ -755,6 +1015,7 @@ def nhl_dashboard_main():
             // Register service worker for PWA
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/service-worker.js')
+                    .then(() => checkExistingSubscription())
                     .catch(err => console.log('SW registration failed:', err));
             }
 
