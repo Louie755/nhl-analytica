@@ -2,6 +2,7 @@ import pandas as pd
 from flask import Flask, render_template_string, jsonify, request, Response
 import requests
 import os
+import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
@@ -295,32 +296,9 @@ def sitemap_xml_route():
     </urlset>"""
     return Response(sitemap_data, mimetype='application/xml')
 
-@app.route('/api/data')
-def get_nhl_data():
-    now = datetime.now()
-    ts = int(now.timestamp())
-    season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+_data_cache = {"data": None, "ts": 0, "loading": False}
 
-    # Fetch all 4 stat endpoints + today's scorers in parallel
-    def fetch_s_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
-    def fetch_s_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
-    def fetch_g_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
-    def fetch_g_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        f_sr = executor.submit(fetch_s_reg)
-        f_sp = executor.submit(fetch_s_ply)
-        f_gr = executor.submit(fetch_g_reg)
-        f_gp = executor.submit(fetch_g_ply)
-        f_ts = executor.submit(get_today_scorers)
-        s_reg = f_sr.result(timeout=20) or []
-        s_ply = f_sp.result(timeout=20) or []
-        g_reg = f_gr.result(timeout=20) or []
-        g_ply = f_gp.result(timeout=20) or []
-        today_scorers = f_ts.result(timeout=10) or set()
-
-    roster_map = get_current_roster_map()
-
+def build_data(s_reg, s_ply, g_reg, g_ply, today_scorers, roster_map):
     def process_skaters(raw, min_gp):
         processed = []
         for p in raw:
@@ -329,7 +307,6 @@ def get_nhl_data():
             pts, sh, pm = p.get('points', 0), max(1, p.get('shots', 0)), p.get('plusMinus', 0)
             ppg = round(pts/gp, 2); ir = min(99.9, round((ppg * 40) + ((pts/sh)*25) + (max(0, pm+10)/2) + (gp/10), 1))
             pid = str(p.get('playerId'))
-            # Use real-time roster map if available, fall back to stats API team
             if pid in roster_map:
                 main_abbr = roster_map[pid]
             else:
@@ -358,7 +335,6 @@ def get_nhl_data():
             sv_val = round((1 - (ga/sa)) * 100, 2) if sa > 0 else 0.0
             gaa = round(ga/gp, 2); ir = min(99.9, round((wins/gp * 40) + (sv_val - 85) * 4 + (5 - gaa) * 2, 1))
             pid = str(p.get('playerId'))
-            # Use real-time roster map if available, fall back to stats API team
             if pid in roster_map:
                 main_abbr = roster_map[pid]
             else:
@@ -377,7 +353,65 @@ def get_nhl_data():
         for i, p in enumerate(processed): p['rank'] = i + 1
         return processed
 
-    return jsonify({"regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)}, "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}})
+    return {"regular": {"skaters": process_skaters(s_reg, 5), "goalies": process_goalies(g_reg, 3)},
+            "playoff": {"skaters": process_skaters(s_ply, 2), "goalies": process_goalies(g_ply, 1)}}
+
+def refresh_data_cache():
+    """Fetch all NHL stats in background and update cache. Never blocks a request."""
+    global _data_cache
+    if _data_cache["loading"]:
+        return
+    _data_cache["loading"] = True
+    try:
+        now = datetime.now()
+        ts = int(now.timestamp())
+        season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+
+        def fetch_s_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
+        def fetch_s_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
+        def fetch_g_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
+        def fetch_g_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            f_sr = executor.submit(fetch_s_reg)
+            f_sp = executor.submit(fetch_s_ply)
+            f_gr = executor.submit(fetch_g_reg)
+            f_gp = executor.submit(fetch_g_ply)
+            f_ts = executor.submit(get_today_scorers)
+            s_reg = f_sr.result(timeout=20) or []
+            s_ply = f_sp.result(timeout=20) or []
+            g_reg = f_gr.result(timeout=20) or []
+            g_ply = f_gp.result(timeout=20) or []
+            today_scorers = f_ts.result(timeout=10) or set()
+
+        roster_map = get_current_roster_map()
+        if s_reg or g_reg:
+            _data_cache["data"] = build_data(s_reg, s_ply, g_reg, g_ply, today_scorers, roster_map)
+            _data_cache["ts"] = datetime.now().timestamp()
+    except Exception:
+        pass
+    finally:
+        _data_cache["loading"] = False
+
+@app.route('/api/data')
+def get_nhl_data():
+    now_ts = datetime.now().timestamp()
+    # Trigger background refresh if cache is older than 5 minutes
+    if (now_ts - _data_cache["ts"]) > 300 and not _data_cache["loading"]:
+        threading.Thread(target=refresh_data_cache, daemon=True).start()
+    # Return cached data instantly if available
+    if _data_cache["data"]:
+        return jsonify(_data_cache["data"])
+    # First ever load — wait for data (with timeout)
+    deadline = now_ts + 25
+    while not _data_cache["data"] and datetime.now().timestamp() < deadline:
+        time.sleep(0.3)
+    if _data_cache["data"]:
+        return jsonify(_data_cache["data"])
+    return jsonify({"error": "NHL API unavailable", "regular": {"skaters": [], "goalies": []}, "playoff": {"skaters": [], "goalies": []}}), 503
+
+# Warm up data cache on startup
+threading.Thread(target=refresh_data_cache, daemon=True).start()
 
 @app.route('/og-image')
 def og_image():
