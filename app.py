@@ -365,7 +365,15 @@ def refresh_data_cache():
     try:
         now = datetime.now()
         ts = int(now.timestamp())
-        season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
+        # NHL season runs Oct-June. After June, use the season that just ended.
+        # Season format: start_year + end_year (e.g. 20242025)
+        if now.month >= 10:
+            season = f"{now.year}{now.year + 1}"
+        elif now.month <= 6:
+            season = f"{now.year - 1}{now.year}"
+        else:
+            # July-Sept: offseason, use the season that just ended
+            season = f"{now.year - 1}{now.year}"
 
         def fetch_s_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
         def fetch_s_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
