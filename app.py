@@ -175,6 +175,9 @@ def nhl_dashboard_main():
             .ir-formula { background: #16253d; border: 1px solid #1f3a52; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.85rem; color: var(--accent); margin: 15px 0; line-height: 1.8; }
             .ir-grade-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
             .ir-grade-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+            /* Last updated indicator */
+            .last-updated { font-size: 0.65rem; color: #64748b; text-align: center; padding: 4px 0 8px; font-weight: 600; letter-spacing: 0.5px; }
+            .last-updated.refreshing { color: var(--accent); animation: blink 1.2s infinite; }
             /* Back to top */
             .back-to-top { position: fixed; bottom: 30px; right: 30px; background: var(--accent); color: #000; border: none; width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 999; box-shadow: 0 4px 15px rgba(56,189,248,0.4); transition: 0.3s; }
             .back-to-top:hover { background: #fff; transform: translateY(-3px); }
@@ -272,6 +275,7 @@ def nhl_dashboard_main():
             <button class="ir-about-btn" onclick="openTrending()">IR TOP 10</button>
         </div>
         <div class="rank-info" id="rank-info-text">RANKING BY POINTS (MIN 5 GP)</div>
+        <div class="last-updated" id="last-updated">—</div>
         <div class="grid" id="main-grid"></div>
         <div id="modal" class="modal" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="m-left" id="mInfo"></div><div class="m-right" id="mRight"></div></div></div>
         <!-- Team Page -->
@@ -321,14 +325,50 @@ def nhl_dashboard_main():
             let currentTeam = null; let chartInstance = null; let compareBasePlayer = null;
             const teams = ["ANA", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN", "VGK", "WSH", "WPG"];
 
+            let lastUpdated = null;
+
             async function init() {
                 try {
                     const res = await fetch('/api/data?t=' + Date.now()); 
                     rawData = await res.json();
+                    lastUpdated = new Date();
                     document.getElementById('loading').style.display = 'none';
                     buildTeamBar(); render();
                     handleURLParams();
+                    startAutoRefresh();
                 } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
+            }
+
+            async function refreshData() {
+                const el = document.getElementById('last-updated');
+                el.textContent = '⟳ REFRESHING ROSTER DATA...';
+                el.classList.add('refreshing');
+                try {
+                    const res = await fetch('/api/data?t=' + Date.now());
+                    rawData = await res.json();
+                    lastUpdated = new Date();
+                    el.classList.remove('refreshing');
+                    updateLastUpdatedLabel();
+                    render();
+                } catch (e) {
+                    el.classList.remove('refreshing');
+                    el.textContent = 'REFRESH FAILED · RETRYING SOON';
+                }
+            }
+
+            function updateLastUpdatedLabel() {
+                if (!lastUpdated) return;
+                const mins = Math.floor((new Date() - lastUpdated) / 60000);
+                const el = document.getElementById('last-updated');
+                el.textContent = mins === 0 ? 'ROSTER DATA UPDATED JUST NOW' : `ROSTER DATA UPDATED ${mins} MIN AGO`;
+            }
+
+            function startAutoRefresh() {
+                updateLastUpdatedLabel();
+                // update the "X mins ago" label every minute
+                setInterval(updateLastUpdatedLabel, 60000);
+                // refresh data every 5 minutes
+                setInterval(refreshData, 5 * 60 * 1000);
             }
 
             function buildTeamBar() {
