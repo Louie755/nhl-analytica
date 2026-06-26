@@ -18,7 +18,7 @@ def fetch_nhl_safe(url, season, sort_prop, game_type=2):
     while True:
         params = {"isAggregate": "false", "isGame": "false", "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]', "start": start, "limit": limit, "cayenneExp": f"seasonId={season} and gameTypeId={game_type}"}
         try:
-            r = requests.get(url, params=params, timeout=10)
+            r = requests.get(url, params=params, timeout=6)
             data = r.json().get('data', [])
             if not data: break
             all_data.extend(data)
@@ -300,10 +300,25 @@ def get_nhl_data():
     now = datetime.now()
     ts = int(now.timestamp())
     season = f"{now.year}{now.year + 1}" if now.month >= 9 else f"{now.year - 1}{now.year}"
-    s_reg, s_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
-    g_reg, g_ply = fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2), fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
-    today_scorers = get_today_scorers()
-    # Fetch real-time roster map to override stale team assignments from stats API
+
+    # Fetch all 4 stat endpoints + today's scorers in parallel
+    def fetch_s_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 2)
+    def fetch_s_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/skater/summary?t={ts}", season, "points", 3)
+    def fetch_g_reg(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 2)
+    def fetch_g_ply(): return fetch_nhl_safe(f"https://api.nhle.com/stats/rest/en/goalie/summary?t={ts}", season, "wins", 3)
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        f_sr = executor.submit(fetch_s_reg)
+        f_sp = executor.submit(fetch_s_ply)
+        f_gr = executor.submit(fetch_g_reg)
+        f_gp = executor.submit(fetch_g_ply)
+        f_ts = executor.submit(get_today_scorers)
+        s_reg = f_sr.result(timeout=20) or []
+        s_ply = f_sp.result(timeout=20) or []
+        g_reg = f_gr.result(timeout=20) or []
+        g_ply = f_gp.result(timeout=20) or []
+        today_scorers = f_ts.result(timeout=10) or set()
+
     roster_map = get_current_roster_map()
 
     def process_skaters(raw, min_gp):
@@ -547,7 +562,7 @@ def nhl_dashboard_main():
         </style>
     </head>
     <body>
-        <div id="loading"><h1>SYNCING LIVE STATS...</h1><p>Initializing Team Rosters.</p></div>
+        <div id="loading"><h1>SYNCING LIVE STATS...</h1><p id="loading-msg">Initializing Team Rosters.</p></div>
         <header>
             <a href="/" class="logo">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12,22V12 L20.47,7.38 M12,12L3.53,7.38" stroke="currentColor" stroke-width="1.2"/><path d="M18,15V11.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M15,15V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12,15V12.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -645,15 +660,29 @@ def nhl_dashboard_main():
             let lastUpdated = null;
 
             async function init() {
+                const loadingMsg = document.getElementById('loading-msg');
+                // Show retry button after 8 seconds if still loading
+                const slowTimer = setTimeout(() => {
+                    if (document.getElementById('loading').style.display !== 'none') {
+                        loadingMsg.innerHTML = 'Taking longer than usual... <button onclick="location.reload()" style="background:var(--accent);color:#000;border:none;padding:6px 14px;border-radius:8px;font-weight:900;cursor:pointer;margin-left:8px;">RETRY</button>';
+                    }
+                }, 8000);
                 try {
-                    const res = await fetch('/api/data?t=' + Date.now()); 
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 25000);
+                    const res = await fetch('/api/data?t=' + Date.now(), { signal: controller.signal });
+                    clearTimeout(timeout);
+                    clearTimeout(slowTimer);
                     rawData = await res.json();
                     lastUpdated = new Date();
                     document.getElementById('loading').style.display = 'none';
                     buildTeamBar(); render();
                     handleURLParams();
                     startAutoRefresh();
-                } catch (e) { document.getElementById('loading').innerHTML = "<h1>LOAD ERROR</h1>"; }
+                } catch (e) {
+                    clearTimeout(slowTimer);
+                    document.getElementById('loading').innerHTML = '<h1>LOAD ERROR</h1><p>NHL API may be down.</p><button onclick="location.reload()" style="background:var(--accent);color:#000;border:none;padding:10px 24px;border-radius:10px;font-weight:900;cursor:pointer;font-size:1rem;margin-top:16px;">TRY AGAIN</button>';
+                }
             }
 
             async function refreshData() {
