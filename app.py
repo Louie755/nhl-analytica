@@ -727,7 +727,12 @@ def nhl_dashboard_main():
 
         <link rel="manifest" href="/manifest.json">
 
-        <title>NHL ANALYTICA</title>
+        <title>NHL Analytica | 엔에이치엘 애널리티카</title>
+<meta name="naver-site-verification" content="네이버에서_복사한_코드" />
+<meta name="description" content="NHL Analytica(엔에이치엘 애널리티카)는 NHL 아이스하키 분석 데이터를 제공합니다." />
+
+<!-- FAVICON: served from static... -->
+        
 
         <!-- FAVICON: served from static with long cache (trims ~12KB of inline base64 per page load) -->
         <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/logo.png') }}">
