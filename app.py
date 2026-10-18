@@ -1,5 +1,3 @@
-방금 전 코드 블록에서 화면 렌더링 방식 때문에 간혹 전체 코드가 접히거나 일부가 잘려 보였던 것 같습니다.
-보기 편하시도록 전체 Flask 애플리케이션 코드를 다시 한 번 빠짐없이 완벽하게 담아서 전달해 드립니다. 아래 코드를 그대로 복사해서 붙여넣으시면 됩니다!
 import pandas as pd
 from flask import Flask, render_template_string, jsonify, request, Response
 import requests
