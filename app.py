@@ -1,6 +1,3 @@
-네, 기존 코드의 대기시간 문제(2분 동안 멈추던 현상)와 SyntaxError 문제를 완벽하게 해결한 전체 코드입니다.
-기존 코드에서 while 루프로 25초간 대기하던 로직을 지우고, 접속하자마자 0.1초 만에 폴백 데이터를 반환한 뒤 백그라운드에서 실시간 데이터로 교체하도록 바꿨습니다.
-아래 코드 블록 우측 상단의 [복사 (Copy)] 버튼을 눌러 app.py 전체 내용을 덮어씌우시면 됩니다.
 import pandas as pd
 from flask import Flask, render_template_string, jsonify, request, Response
 import requests
